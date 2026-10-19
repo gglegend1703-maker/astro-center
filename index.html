@@ -76,14 +76,27 @@
       <div id="auth-error" class="error"></div>
     </div>
 
-    <!-- Блок, который видят АВТОРИЗОВАННЫЕ пользователи -->
-    <div id="user-block" class="hidden">
-      <p class="status" id="auth-status">Вы вошли!</p>
-      <p style="text-align: center; color: #94a3b8;" id="user-email"></p>
-      <button id="admin-panel-btn" class="hidden" style="background: #10b981; margin-bottom: 10px;">Перейти в админ-панель</button>
-      <button id="logout-btn" class="logout-btn">Выйти</button>
+        <!-- Блок, который видят АВТОРИЗОВАННЫЕ пользователи -->
+    <div id="user-block" class="hidden" style="width: 100%; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+      
+      <!-- Шапка профиля -->
+      <div class="container" style="max-width: 100%; margin: 0;">
+        <p class="status" id="auth-status" style="margin-top: 0;">Вы вошли!</p>
+        <p style="text-align: center; color: #94a3b8; margin-bottom: 20px;" id="user-email"></p>
+        
+        <button id="admin-panel-btn" class="hidden" style="background: #10b981; margin-bottom: 10px;">Перейти в админ-панель</button>
+        <button id="logout-btn" class="logout-btn">Выйти</button>
+      </div>
+
+      <!-- НОВЫЙ БЛОК: Список экскурсий -->
+      <div class="container" style="max-width: 100%; margin: 0;">
+        <h2 style="color: #a78bfa; margin-top: 0; text-align: center;">Доступные экскурсии</h2>
+        <div id="events-list" style="display: flex; flex-direction: column; gap: 15px;">
+          <p style="text-align: center; color: #94a3b8;">Загрузка экскурсий...</p>
+        </div>
+      </div>
+
     </div>
-  </div>
 
   <script type="module" src="app.js"></script>
 </body>
