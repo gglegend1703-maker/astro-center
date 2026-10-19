@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { 
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, collection, getDocs, addDoc, query, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 
 const app = initializeApp(firebaseConfig);
@@ -79,7 +79,7 @@ async function loadEvents() {
         <h3>${data.title}</h3>
         <p>📅 ${date} | 👥 Лимит: ${data.limit} чел.</p>
         <p style="margin-top: 5px; font-size: 12px; color: #cbd5e1;">${data.description || ''}</p>
-        <button onclick="alert('Скоро здесь появится запись!')">Записаться</button>
+        <button id="btn-${doc.id}" onclick="registerForEvent('${doc.id}', ${data.limit})">Записаться</button>
         <div style="clear: both;"></div>
       `;
       eventsList.appendChild(el);
@@ -89,7 +89,57 @@ async function loadEvents() {
     eventsList.innerHTML = "<p style='color: #f87171; text-align: center;'>Ошибка загрузки.</p>";
   }
 }
+// Функция записи на экскурсию (глобальная)
+window.registerForEvent = async function(eventId, limit) {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("Вы должны войти в систему!");
+    return;
+  }
 
+  try {
+    // 1. Считаем, сколько людей уже записано на эту экскурсию
+    const regQuery = query(collection(db, "registrations"), where("eventId", "==", eventId));
+    const snapshot = await getCountFromServer(regQuery);
+    const currentCount = snapshot.data().count;
+
+    // 2. Проверяем лимит
+    if (currentCount >= limit) {
+      alert("К сожалению, на эту экскурсию больше нет мест (лимит исчерпан).");
+      return;
+    }
+
+    // 3. Проверяем, не записан ли уже этот пользователь
+    const userQuery = query(collection(db, "registrations"), where("eventId", "==", eventId), where("userId", "==", user.uid));
+    const userSnapshot = await getDocs(userQuery);
+    if (!userSnapshot.empty) {
+      alert("Вы уже записаны на эту экскурсию!");
+      return;
+    }
+
+    // 4. Создаем заявку
+    await addDoc(collection(db, "registrations"), {
+      eventId: eventId,
+      userId: user.uid,
+      userEmail: user.email,
+      createdAt: new Date().toISOString()
+    });
+
+    alert("Вы успешно записались на экскурсию!");
+    
+    // Меняем кнопку, чтобы нельзя было нажать дважды
+    const btn = document.getElementById(`btn-${eventId}`);
+    if (btn) {
+      btn.textContent = "Вы записаны";
+      btn.disabled = true;
+      btn.style.background = "#4ade80";
+    }
+
+  } catch (error) {
+    console.error("Ошибка записи:", error);
+    alert("Произошла ошибка при записи. Попробуйте позже.");
+  }
+};
 // Следим за состоянием авторизации
 onAuthStateChanged(auth, async (user) => {
   if (user) {
