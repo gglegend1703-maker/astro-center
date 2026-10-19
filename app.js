@@ -6,7 +6,7 @@ import {
   createUserWithEmailAndPassword, 
   signOut 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 
 // Инициализация Firebase
@@ -85,23 +85,21 @@ onAuthStateChanged(auth, async (user) => {
     userBlock.classList.remove("hidden");
     userEmail.textContent = user.email;
 
+    // ВЫЗЫВАЕМ ЗАГРУЗКУ ЭКСКУРСИЙ
+    loadEvents();
+
     // ПРОВЕРКА НА АДМИНА
     try {
-      // Ищем документ в коллекции admins с ID, равным UID пользователя
       const adminDocRef = doc(db, "admins", user.uid);
       const adminDoc = await getDoc(adminDocRef);
-
       const adminBtn = document.getElementById("admin-panel-btn");
       
       if (adminDoc.exists()) {
-        // Если документ найден, значит это админ
         adminBtn.classList.remove("hidden");
-        // ТЕПЕРЬ КНОПКА ВЕДЕТ НА СТРАНИЦУ АДМИНКИ
         adminBtn.onclick = () => {
           window.location.href = "admin.html";
         };
       } else {
-        // Если нет — скрываем кнопку (на всякий случай)
         adminBtn.classList.add("hidden");
       }
     } catch (error) {
@@ -115,4 +113,42 @@ onAuthStateChanged(auth, async (user) => {
     authForm.reset();
     document.getElementById("admin-panel-btn").classList.add("hidden");
   }
-}); 
+});
+
+// НОВАЯ ФУНКЦИЯ: Загрузка экскурсий для пользователей
+async function loadEvents() {
+  const eventsList = document.getElementById("events-list");
+  eventsList.innerHTML = "Загрузка...";
+
+  try {
+    const querySnapshot = await getDocs(collection(db, "events"));
+    
+    if (querySnapshot.empty) {
+      eventsList.innerHTML = "<p style='text-align: center; color: #94a3b8;'>Пока нет доступных экскурсий.</p>";
+      return;
+    }
+
+    eventsList.innerHTML = ""; // Очищаем
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const date = new Date(data.date).toLocaleString("ru-RU");
+      
+      const el = document.createElement("div");
+      // Стили для карточки экскурсии прямо в JS
+      el.style.cssText = "background: #0f172a; padding: 15px; border-radius: 8px; border-left: 4px solid #8b5cf6; display: flex; justify-content: space-between; align-items: center;";
+      el.innerHTML = `
+        <div>
+          <h3 style="margin: 0 0 5px 0; color: #a78bfa;">${data.title}</h3>
+          <p style="margin: 0; font-size: 14px; color: #94a3b8;">📅 ${date} | 👥 Лимит: ${data.limit} чел.</p>
+          <p style="margin: 5px 0 0 0; font-size: 12px; color: #cbd5e1;">${data.description || ''}</p>
+        </div>
+        <button style="width: auto; padding: 8px 15px; font-size: 14px;" onclick="alert('Функция записи появится на следующем шаге!')">Записаться</button>
+      `;
+      eventsList.appendChild(el);
+    });
+  } catch (error) {
+    console.error("Ошибка загрузки экскурсий:", error);
+    eventsList.innerHTML = "<p style='color: #f87171;'>Ошибка загрузки экскурсий.</p>";
+  }
+}
