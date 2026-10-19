@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, doc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 
 const app = initializeApp(firebaseConfig);
@@ -12,7 +12,7 @@ const form = document.getElementById("create-event-form");
 const formMessage = document.getElementById("form-message");
 const eventsContainer = document.getElementById("events-container");
 
-// Защита страницы: проверяем, что зашел именно админ
+// Защита страницы и запуск загрузки данных
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html"; // Если не вошел, кидаем на главную
@@ -20,16 +20,21 @@ onAuthStateChanged(auth, async (user) => {
   }
   
   // Проверка на админа
-  const adminDoc = await getDoc(doc(db, "admins", user.uid));
-  if (!adminDoc.exists()) {
-    alert("У вас нет прав администратора!");
-    window.location.href = "index.html";
+  try {
+    const adminDoc = await getDoc(doc(db, "admins", user.uid));
+    if (!adminDoc.exists()) {
+      alert("У вас нет прав администратора!");
+      window.location.href = "index.html";
+      return;
+    }
+  } catch (error) {
+    console.error("Ошибка проверки прав:", error);
     return;
   }
 
-  // Если проверка пройдена — загружаем экскурсии
+  // Если проверка пройдена — загружаем данные
   loadEvents();
-  loadGuests();
+  loadGuests(); // <--- ВОТ ЭТА СТРОКА ЗАПУСКАЕТ ЗАГРУЗКУ ГОСТЕЙ
 });
 
 // Функция загрузки экскурсий
@@ -37,7 +42,7 @@ async function loadEvents() {
   eventsContainer.innerHTML = "Загрузка...";
   try {
     const querySnapshot = await getDocs(collection(db, "events"));
-    eventsContainer.innerHTML = ""; // Очищаем
+    eventsContainer.innerHTML = ""; 
 
     if (querySnapshot.empty) {
       eventsContainer.innerHTML = "<p style='color: #94a3b8;'>Пока нет созданных экскурсий.</p>";
@@ -64,44 +69,12 @@ async function loadEvents() {
   }
 }
 
-// Обработка формы создания экскурсии
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  formMessage.textContent = "Создание...";
-  formMessage.className = "";
-
-  const title = document.getElementById("event-title").value;
-  const date = document.getElementById("event-date").value;
-  const limit = parseInt(document.getElementById("event-limit").value);
-  const desc = document.getElementById("event-desc").value;
-
-  try {
-    await addDoc(collection(db, "events"), {
-      title: title,
-      date: date,
-      limit: limit,
-      description: desc,
-      createdAt: new Date().toISOString()
-    });
-
-    formMessage.textContent = "Экскурсия успешно создана!";
-    formMessage.className = "success";
-    form.reset();
-    
-    // Обновляем список экскурсий
-    loadEvents();
-  } catch (error) {
-    console.error("Ошибка добавления:", error);
-    formMessage.textContent = "Ошибка при создании. Проверьте консоль.";
-    formMessage.className = "error";
-  }
-  // Функция загрузки гостей
+// Функция загрузки гостей
 async function loadGuests() {
   const container = document.getElementById("guests-container");
   container.innerHTML = "Загрузка...";
 
   try {
-    // Получаем все заявки
     const querySnapshot = await getDocs(collection(db, "registrations"));
     
     if (querySnapshot.empty) {
@@ -148,4 +121,35 @@ async function loadGuests() {
     container.innerHTML = "<p style='color: #f87171;'>Ошибка загрузки списка гостей.</p>";
   }
 }
+
+// Обработка формы создания экскурсии
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  formMessage.textContent = "Создание...";
+  formMessage.className = "";
+
+  const title = document.getElementById("event-title").value;
+  const date = document.getElementById("event-date").value;
+  const limit = parseInt(document.getElementById("event-limit").value);
+  const desc = document.getElementById("event-desc").value;
+
+  try {
+    await addDoc(collection(db, "events"), {
+      title: title,
+      date: date,
+      limit: limit,
+      description: desc,
+      createdAt: new Date().toISOString()
+    });
+
+    formMessage.textContent = "Экскурсия успешно создана!";
+    formMessage.className = "success";
+    form.reset();
+    
+    loadEvents(); // Обновляем список экскурсий
+  } catch (error) {
+    console.error("Ошибка добавления:", error);
+    formMessage.textContent = "Ошибка при создании. Проверьте консоль.";
+    formMessage.className = "error";
+  }
 });
