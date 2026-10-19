@@ -8,7 +8,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
-import { firebaseConfig } from "./firebase.js";
 
 // Инициализация Firebase
 const app = initializeApp(firebaseConfig);
