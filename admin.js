@@ -7,19 +7,17 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Элементы страницы
 const form = document.getElementById("create-event-form");
 const formMessage = document.getElementById("form-message");
 const eventsContainer = document.getElementById("events-container");
 
-// Защита страницы и запуск загрузки данных
+// --- 1. ПРОВЕРКА АВТОРИЗАЦИИ И АДМИНА ---
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    window.location.href = "index.html"; // Если не вошел, кидаем на главную
+    window.location.href = "index.html";
     return;
   }
   
-  // Проверка на админа
   try {
     const adminDoc = await getDoc(doc(db, "admins", user.uid));
     if (!adminDoc.exists()) {
@@ -32,12 +30,13 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // Если проверка пройдена — загружаем данные
+  // Если мы здесь, значит пользователь — админ. Запускаем загрузку данных.
   loadEvents();
-  loadGuests(); // <--- ВОТ ЭТА СТРОКА ЗАПУСКАЕТ ЗАГРУЗКУ ГОСТЕЙ
+  loadGuests(); 
 });
 
-// Функция загрузки экскурсий
+
+// --- 2. ФУНКЦИЯ ЗАГРУЗКИ ЭКСКУРСИЙ ---
 async function loadEvents() {
   eventsContainer.innerHTML = "Загрузка...";
   try {
@@ -69,9 +68,12 @@ async function loadEvents() {
   }
 }
 
-// Функция загрузки гостей
+
+// --- 3. ФУНКЦИЯ ЗАГРУЗКИ ГОСТЕЙ (ТА САМАЯ, КОТОРУЮ НЕ НАШЕЛ БРАУЗЕР) ---
 async function loadGuests() {
   const container = document.getElementById("guests-container");
+  if (!container) return; // Защита на случай, если HTML не обновился
+
   container.innerHTML = "Загрузка...";
 
   try {
@@ -82,14 +84,12 @@ async function loadGuests() {
       return;
     }
 
-    // Получаем список экскурсий, чтобы знать их названия
     const eventsSnapshot = await getDocs(collection(db, "events"));
     const eventsMap = {};
     eventsSnapshot.forEach(doc => {
       eventsMap[doc.id] = doc.data().title;
     });
 
-    // Строим таблицу
     let html = `
       <table style="width: 100%; border-collapse: collapse; text-align: left; color: #cbd5e1;">
         <tr style="border-bottom: 2px solid #475569;">
@@ -122,7 +122,8 @@ async function loadGuests() {
   }
 }
 
-// Обработка формы создания экскурсии
+
+// --- 4. ОБРАБОТКА ФОРМЫ СОЗДАНИЯ ЭКСКУРСИИ ---
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   formMessage.textContent = "Создание...";
@@ -146,7 +147,7 @@ form.addEventListener("submit", async (e) => {
     formMessage.className = "success";
     form.reset();
     
-    loadEvents(); // Обновляем список экскурсий
+    loadEvents(); 
   } catch (error) {
     console.error("Ошибка добавления:", error);
     formMessage.textContent = "Ошибка при создании. Проверьте консоль.";
