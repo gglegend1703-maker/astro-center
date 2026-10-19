@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 
 const app = initializeApp(firebaseConfig);
@@ -29,6 +29,7 @@ onAuthStateChanged(auth, async (user) => {
 
   // Если проверка пройдена — загружаем экскурсии
   loadEvents();
+  loadGuests();
 });
 
 // Функция загрузки экскурсий
@@ -94,4 +95,57 @@ form.addEventListener("submit", async (e) => {
     formMessage.textContent = "Ошибка при создании. Проверьте консоль.";
     formMessage.className = "error";
   }
+  // Функция загрузки гостей
+async function loadGuests() {
+  const container = document.getElementById("guests-container");
+  container.innerHTML = "Загрузка...";
+
+  try {
+    // Получаем все заявки
+    const querySnapshot = await getDocs(collection(db, "registrations"));
+    
+    if (querySnapshot.empty) {
+      container.innerHTML = "<p style='color: #94a3b8;'>Пока нет ни одной заявки.</p>";
+      return;
+    }
+
+    // Получаем список экскурсий, чтобы знать их названия
+    const eventsSnapshot = await getDocs(collection(db, "events"));
+    const eventsMap = {};
+    eventsSnapshot.forEach(doc => {
+      eventsMap[doc.id] = doc.data().title;
+    });
+
+    // Строим таблицу
+    let html = `
+      <table style="width: 100%; border-collapse: collapse; text-align: left; color: #cbd5e1;">
+        <tr style="border-bottom: 2px solid #475569;">
+          <th style="padding: 10px;">Экскурсия</th>
+          <th style="padding: 10px;">Email гостя</th>
+          <th style="padding: 10px;">Дата заявки</th>
+        </tr>
+    `;
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      const eventTitle = eventsMap[data.eventId] || "Неизвестно";
+      const regDate = new Date(data.createdAt).toLocaleString("ru-RU");
+      
+      html += `
+        <tr style="border-bottom: 1px solid #334155;">
+          <td style="padding: 10px; color: #a78bfa; font-weight: bold;">${eventTitle}</td>
+          <td style="padding: 10px;">${data.userEmail}</td>
+          <td style="padding: 10px;">${regDate}</td>
+        </tr>
+      `;
+    });
+
+    html += `</table>`;
+    container.innerHTML = html;
+
+  } catch (error) {
+    console.error("Ошибка загрузки гостей:", error);
+    container.innerHTML = "<p style='color: #f87171;'>Ошибка загрузки списка гостей.</p>";
+  }
+}
 });
