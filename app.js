@@ -112,4 +112,12 @@ onAuthStateChanged(auth, async (user) => {
     authForm.reset();
     document.getElementById("admin-panel-btn").classList.add("hidden");
   }
+        if (adminDoc.exists()) {
+        // Если документ найден, значит это админ
+        adminBtn.classList.remove("hidden");
+        // МЕНЯЕМ alert НА ПЕРЕХОД НА СТРАНИЦУ:
+        adminBtn.onclick = () => {
+          window.location.href = "admin.html";
+        };
+      } else {
 });
