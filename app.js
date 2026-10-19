@@ -79,16 +79,38 @@ logoutBtn.addEventListener("click", () => {
 });
 
 // Следим за состоянием авторизации
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     // Пользователь вошел
     authBlock.classList.add("hidden");
     userBlock.classList.remove("hidden");
     userEmail.textContent = user.email;
+
+    // ПРОВЕРКА НА АДМИНА
+    try {
+      // Ищем документ в коллекции admins с ID, равным UID пользователя
+      const adminDocRef = doc(db, "admins", user.uid);
+      const adminDoc = await getDoc(adminDocRef);
+
+      const adminBtn = document.getElementById("admin-panel-btn");
+      
+      if (adminDoc.exists()) {
+        // Если документ найден, значит это админ
+        adminBtn.classList.remove("hidden");
+        adminBtn.onclick = () => alert("Скоро здесь будет админ-панель!");
+      } else {
+        // Если нет — скрываем кнопку (на всякий случай)
+        adminBtn.classList.add("hidden");
+      }
+    } catch (error) {
+      console.error("Ошибка при проверке прав:", error);
+    }
+
   } else {
     // Пользователь вышел
     authBlock.classList.remove("hidden");
     userBlock.classList.add("hidden");
     authForm.reset();
+    document.getElementById("admin-panel-btn").classList.add("hidden");
   }
 });
