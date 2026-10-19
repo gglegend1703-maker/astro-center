@@ -6,11 +6,14 @@ import {
   createUserWithEmailAndPassword, 
   signOut 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { firebaseConfig } from "./firebase.js";
 import { firebaseConfig } from "./firebase.js";
 
 // Инициализация Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Получаем элементы со страницы
 const authBlock = document.getElementById("auth-block");
