@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Астрономический центр</title>
   <style>
-    /* Базовые стили для красивого вида */
+    /* Базовые стили */
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
@@ -15,88 +15,106 @@
       justify-content: center;
       align-items: center;
       min-height: 100vh;
+      padding: 20px;
+      box-sizing: border-box;
     }
     .container {
       background: rgba(30, 41, 59, 0.8);
-      padding: 40px;
+      padding: 30px;
       border-radius: 12px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
       width: 100%;
-      max-width: 400px;
+      max-width: 500px; /* Сделали чуть шире */
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 20px;
     }
     h1 { text-align: center; margin-top: 0; font-size: 24px; color: #a78bfa; }
+    h2 { text-align: center; color: #a78bfa; margin-top: 0; font-size: 20px; }
+    
+    /* Вкладки */
     .tabs { display: flex; margin-bottom: 20px; }
     .tab {
       flex: 1; padding: 10px; text-align: center; cursor: pointer;
       border-bottom: 2px solid transparent; color: #94a3b8; font-weight: bold;
     }
     .tab.active { border-bottom: 2px solid #a78bfa; color: #a78bfa; }
+    
+    /* Формы */
     .form-group { margin-bottom: 15px; }
     input {
       width: 100%; padding: 12px; box-sizing: border-box; border-radius: 6px;
       border: 1px solid #475569; background: #0f172a; color: #fff; outline: none;
+      font-family: inherit;
     }
     input:focus { border-color: #a78bfa; }
     button {
       width: 100%; padding: 12px; border: none; border-radius: 6px;
       background: #8b5cf6; color: white; font-size: 16px; font-weight: bold;
-      cursor: pointer; transition: background 0.2s;
+      cursor: pointer; transition: background 0.2s; margin-top: 10px;
     }
     button:hover { background: #7c3aed; }
-    .hidden { display: none; }
+    
+    /* Утилиты */
+    .hidden { display: none !important; }
     .status { text-align: center; margin-top: 20px; color: #4ade80; font-weight: bold; }
     .error { color: #f87171; font-size: 14px; margin-top: 10px; text-align: center; }
-    .logout-btn { background: #ef4444; margin-top: 10px; }
+    .logout-btn { background: #ef4444; margin-top: 15px; }
     .logout-btn:hover { background: #dc2626; }
+    
+    /* Карточки экскурсий */
+    .event-card {
+      background: #0f172a; 
+      padding: 15px; 
+      border-radius: 8px; 
+      border-left: 4px solid #8b5cf6; 
+      margin-bottom: 15px;
+      text-align: left;
+    }
+    .event-card h3 { margin: 0 0 5px 0; color: #a78bfa; font-size: 18px; }
+    .event-card p { margin: 0; font-size: 14px; color: #94a3b8; }
+    .event-card button { width: auto; padding: 8px 15px; font-size: 14px; margin-top: 10px; float: right; }
   </style>
 </head>
 <body>
 
-  <div class="container">
+  <!-- Блок АВТОРИЗАЦИИ (показывается только если не вошел) -->
+  <div id="auth-block" class="container">
     <h1>Астрономический центр</h1>
-
-    <!-- Блок, который видят НЕавторизованные пользователи -->
-    <div id="auth-block">
-      <div class="tabs">
-        <div class="tab active" id="tab-login" onclick="switchTab('login')">Вход</div>
-        <div class="tab" id="tab-register" onclick="switchTab('register')">Регистрация</div>
+    <div class="tabs">
+      <div class="tab active" id="tab-login" onclick="switchTab('login')">Вход</div>
+      <div class="tab" id="tab-register" onclick="switchTab('register')">Регистрация</div>
+    </div>
+    <form id="auth-form">
+      <div class="form-group">
+        <input type="email" id="email" placeholder="Email" required>
       </div>
+      <div class="form-group">
+        <input type="password" id="password" placeholder="Пароль (мин. 6 символов)" required>
+      </div>
+      <button type="submit" id="submit-btn">Войти</button>
+    </form>
+    <div id="auth-error" class="error"></div>
+  </div>
 
-      <form id="auth-form">
-        <div class="form-group">
-          <input type="email" id="email" placeholder="Email" required>
-        </div>
-        <div class="form-group">
-          <input type="password" id="password" placeholder="Пароль (мин. 6 символов)" required>
-        </div>
-        <button type="submit" id="submit-btn">Войти</button>
-      </form>
-      <div id="auth-error" class="error"></div>
+  <!-- Блок ПОЛЬЗОВАТЕЛЯ И ЭКСКУРСИЙ (показывается только если вошел) -->
+  <div id="user-block" class="container hidden" style="max-width: 600px;">
+    
+    <h1>Астрономический центр</h1>
+    <p class="status" style="margin-top: 0;">Вы вошли!</p>
+    <p style="text-align: center; color: #94a3b8; margin-bottom: 20px;" id="user-email"></p>
+    
+    <button id="admin-panel-btn" class="hidden" style="background: #10b981;">Перейти в админ-панель</button>
+    <button id="logout-btn" class="logout-btn">Выйти</button>
+    
+    <hr style="border-color: #334155; margin: 30px 0;">
+    
+    <h2>Доступные экскурсии</h2>
+    <div id="events-list">
+      <p style="text-align: center; color: #94a3b8;">Загрузка экскурсий...</p>
     </div>
 
-        <!-- Блок, который видят АВТОРИЗОВАННЫЕ пользователи -->
-    <div id="user-block" class="hidden" style="width: 100%; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
-      
-      <!-- Шапка профиля -->
-      <div class="container" style="max-width: 100%; margin: 0;">
-        <p class="status" id="auth-status" style="margin-top: 0;">Вы вошли!</p>
-        <p style="text-align: center; color: #94a3b8; margin-bottom: 20px;" id="user-email"></p>
-        
-        <button id="admin-panel-btn" class="hidden" style="background: #10b981; margin-bottom: 10px;">Перейти в админ-панель</button>
-        <button id="logout-btn" class="logout-btn">Выйти</button>
-      </div>
-
-      <!-- НОВЫЙ БЛОК: Список экскурсий -->
-      <div class="container" style="max-width: 100%; margin: 0;">
-        <h2 style="color: #a78bfa; margin-top: 0; text-align: center;">Доступные экскурсии</h2>
-        <div id="events-list" style="display: flex; flex-direction: column; gap: 15px;">
-          <p style="text-align: center; color: #94a3b8;">Загрузка экскурсий...</p>
-        </div>
-      </div>
-
-    </div>
+  </div>
 
   <script type="module" src="app.js"></script>
 </body>
