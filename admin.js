@@ -85,7 +85,6 @@ async function loadGuests() {
 
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      // Формируем список ФИО
       let names = "—";
       if (data.guests && Array.isArray(data.guests)) {
         names = data.guests.map(g => `${g.name} ${g.isChild ? '(реб.)' : ''}`).join("<br>");
@@ -133,7 +132,7 @@ window.confirmPayment = async function(regId) {
   }
 };
 
-// 5. Генерация Word (только оплаченные, по алфавиту)
+// 5. Генерация Word
 window.downloadWord = async function() {
   try {
     const q = query(collection(db, "registrations"), where("status", "==", "paid"));
@@ -154,7 +153,6 @@ window.downloadWord = async function() {
       }
     });
 
-    // Сортировка по алфавиту
     allGuests.sort((a, b) => a.name.localeCompare(b.name));
 
     let htmlContent = `
@@ -222,3 +220,62 @@ form.addEventListener("submit", async (e) => {
     formMessage.className = "error";
   }
 });
+
+// 7. Создание новости (через ImgBB)
+const newsForm = document.getElementById("create-news-form");
+const newsMessage = document.getElementById("news-message");
+
+if (newsForm) {
+  newsForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    newsMessage.textContent = "Публикация...";
+    newsMessage.className = "";
+
+    const title = document.getElementById("news-title").value;
+    const content = document.getElementById("news-content").value;
+    const fileInput = document.getElementById("news-photo");
+    const file = fileInput.files[0];
+
+    try {
+      let imageUrl = "";
+
+      if (file) {
+        // ВСТАВЬТЕ СЮДА ВАШ КЛЮЧ IMGBB
+        const IMGBB_API_KEY = "ВАШ_КЛЮЧ_ЗДЕСЬ"; 
+        
+        const formData = new FormData();
+        formData.append("image", file);
+        formData.append("key", IMGBB_API_KEY);
+
+        const response = await fetch("https://api.imgbb.com/1/upload", {
+          method: "POST",
+          body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          imageUrl = result.data.url;
+        } else {
+          throw new Error("Ошибка ImgBB: " + result.error.message);
+        }
+      }
+
+      await addDoc(collection(db, "news"), {
+        title: title,
+        content: content,
+        imageUrl: imageUrl,
+        createdAt: new Date().toISOString()
+      });
+
+      newsMessage.textContent = "Новость успешно опубликована!";
+      newsMessage.className = "success";
+      newsForm.reset();
+      
+    } catch (error) {
+      console.error("Ошибка публикации:", error);
+      newsMessage.textContent = "Ошибка: " + error.message;
+      newsMessage.className = "error";
+    }
+  });
+}
