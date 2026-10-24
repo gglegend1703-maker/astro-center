@@ -104,6 +104,46 @@ async function loadEvents() {
   }
 }
 
+// --- ЗАГРУЗКА НОВОСТЕЙ ---
+async function loadNews() {
+  const newsList = document.getElementById("news-list");
+  if (!newsList) return;
+
+  try {
+    const querySnapshot = await getDocs(collection(db, "news"));
+    newsList.innerHTML = "";
+
+    if (querySnapshot.empty) {
+      newsList.innerHTML = "<p style='text-align: center; color: #94a3b8;'>Пока нет новостей.</p>";
+      return;
+    }
+
+    const newsArray = [];
+    querySnapshot.forEach(doc => newsArray.push(doc.data()));
+    newsArray.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    newsArray.forEach(data => {
+      const el = document.createElement("div");
+      el.className = "news-card";
+      
+      let imgHtml = "";
+      if (data.imageUrl) {
+        imgHtml = `<img src="${data.imageUrl}" style="width: 100%; max-height: 200px; object-fit: cover; border-radius: 4px; margin-bottom: 10px;">`;
+      }
+
+      el.innerHTML = `
+        ${imgHtml}
+        <h3>${data.title}</h3>
+        <p>${data.content}</p>
+      `;
+      newsList.appendChild(el);
+    });
+  } catch (error) {
+    console.error("Ошибка загрузки новостей:", error);
+    newsList.innerHTML = "<p style='color: #f87171; text-align: center;'>Ошибка загрузки новостей.</p>";
+  }
+}
+
 // --- СЛЕЖЕНИЕ ЗА АВТОРИЗАЦИЕЙ ---
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -112,6 +152,7 @@ onAuthStateChanged(auth, async (user) => {
     userEmail.textContent = user.email;
 
     loadEvents();
+    loadNews(); // Запускаем загрузку новостей
 
     try {
       const adminDoc = await getDoc(doc(db, "admins", user.uid));
@@ -146,7 +187,6 @@ window.openBookingModal = function(eventId, limit, title) {
   document.getElementById("booking-modal").classList.remove("hidden");
   document.getElementById("total-price").textContent = "0";
 
-  // Автозаполнение ФИО
   const user = auth.currentUser;
   if (user) {
     getDoc(doc(db, "users", user.uid)).then(docSnap => {
@@ -218,7 +258,6 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
 
     const totalPrice = parseInt(document.getElementById("total-price").textContent);
     
-    // Генерация порядкового номера
     const countSnapshot = await getCountFromServer(collection(db, "registrations"));
     const listNumber = countSnapshot.data().count + 1;
 
@@ -234,8 +273,13 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
       createdAt: new Date().toISOString()
     });
 
-    alert(`Заявка №${listNumber} создана! Сумма к оплате: ${totalPrice} руб. Места будут забронированы после подтверждения оплаты администратором.`);
-    closeModal();
+    // ПОКАЗЫВАЕМ ОКНО С ИНСТРУКЦИЕЙ ЕРИП
+    document.getElementById("pay-list-number").textContent = listNumber;
+    document.getElementById("pay-total-price").textContent = totalPrice;
+    document.getElementById("pay-number-instruction").textContent = listNumber;
+    
+    closeModal(); // Закрываем окно записи
+    document.getElementById("payment-modal").classList.remove("hidden"); // Открываем окно оплаты
     loadEvents(); 
 
   } catch (error) {
@@ -246,3 +290,8 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
     submitBtn.textContent = "Подтвердить заявку";
   }
 });
+
+// --- ЗАКРЫТИЕ ОКНА ОПЛАТЫ ---
+window.closePaymentModal = function() {
+  document.getElementById("payment-modal").classList.add("hidden");
+};
