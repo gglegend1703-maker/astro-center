@@ -119,7 +119,38 @@
     </div>
 
   </div>
+  <!-- Модальное окно записи -->
+  <div id="booking-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;">
+    <div style="background: #1e293b; padding: 30px; border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;">
+      <h2 id="modal-title" style="color: #a78bfa; margin-top: 0;">Запись на экскурсию</h2>
+      
+      <form id="booking-form">
+        <!-- Основной гость -->
+        <h3 style="color: #cbd5e1; font-size: 16px; margin-bottom: 10px;">Кто пойдет (вы):</h3>
+        <div class="form-group">
+          <input type="text" id="main-guest-name" placeholder="Ваше ФИО" required>
+        </div>
+        <div class="form-group">
+          <label style="font-size: 14px; color: #94a3b8;">Дата рождения (если младше 14 лет будет скидка):</label>
+          <input type="date" id="main-guest-dob" required>
+        </div>
 
+        <!-- Сопровождающие лица -->
+        <h3 style="color: #cbd5e1; font-size: 16px; margin: 20px 0 10px 0;">Дополнительные гости:</h3>
+        <div id="extra-guests-container"></div>
+        <button type="button" id="add-guest-btn" style="background: #475569; margin-bottom: 20px;">+ Добавить гостя</button>
+
+        <hr style="border-color: #334155; margin: 20px 0;">
+        
+        <!-- Итого -->
+        <h3 style="color: #4ade80; font-size: 18px; margin: 0;">Итого к оплате: <span id="total-price">0</span> руб.</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin-top: 5px;">Взрослый: 12 руб. | Детский (до 14 лет): 6 руб.</p>
+
+        <button type="submit" style="margin-top: 20px;">Подтвердить заявку</button>
+        <button type="button" onclick="closeModal()" style="background: transparent; border: 1px solid #f87171; color: #f87171; margin-top: 10px;">Отмена</button>
+      </form>
+    </div>
+  </div>
   <script type="module" src="app.js"></script>
 </body>
 </html>
