@@ -69,6 +69,7 @@ authForm.addEventListener("submit", async (e) => {
 logoutBtn.addEventListener("click", () => signOut(auth));
 
 // Загрузка экскурсий
+// Загрузка экскурсий
 async function loadEvents() {
   eventsList.innerHTML = "<p style='text-align: center; color: #94a3b8;'>Загрузка...</p>";
   try {
@@ -85,11 +86,13 @@ async function loadEvents() {
       
       const el = document.createElement("div");
       el.className = "event-card";
+      
+      // ВОТ НАША НОВАЯ КНОПКА:
       el.innerHTML = `
         <h3>${data.title}</h3>
         <p>📅 ${date} | 👥 Лимит: ${data.limit} чел.</p>
         <p style="margin-top: 5px; font-size: 12px; color: #cbd5e1;">${data.description || ''}</p>
-        <button id="btn-${doc.id}" onclick="registerForEvent('${doc.id}', ${data.limit})">Записаться</button>
+        <button onclick="openBookingModal('${doc.id}', ${data.limit}, '${data.title}')">Записаться</button>
         <div style="clear: both;"></div>
       `;
       eventsList.appendChild(el);
