@@ -2,12 +2,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { 
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, getDocs, addDoc, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { 
+  getFirestore, doc, getDoc, collection, getDocs, addDoc, getCountFromServer, setDoc 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { firebaseConfig } from "./firebase.js";
 
+// --- ИНИЦИАЛИЗАЦИЯ ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// --- ЭЛЕМЕНТЫ СТРАНИЦЫ ---
 const authBlock = document.getElementById("auth-block");
 const userBlock = document.getElementById("user-block");
 const authForm = document.getElementById("auth-form");
@@ -21,23 +26,23 @@ const eventsList = document.getElementById("events-list");
 
 let isLoginMode = true;
 
+// --- ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК (ВХОД / РЕГИСТРАЦИЯ) ---
 window.switchTab = function(mode) {
   isLoginMode = (mode === 'login');
   document.getElementById("tab-login").classList.toggle("active", isLoginMode);
   document.getElementById("tab-register").classList.toggle("active", !isLoginMode);
-  
-  // Скрываем/показываем ФИО
   document.getElementById("fullname-group").classList.toggle("hidden", isLoginMode);
   submitBtn.textContent = isLoginMode ? "Войти" : "Зарегистрироваться";
   authError.textContent = "";
   authForm.reset();
 };
+
+// --- ОБРАБОТКА ВХОДА / РЕГИСТРАЦИИ ---
 authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = emailInput.value;
   const password = passwordInput.value;
-  const fullname = document.getElementById("fullname").value; // Берем ФИО
-  
+  const fullname = document.getElementById("fullname").value;
   authError.textContent = "";
   submitBtn.disabled = true;
 
@@ -45,30 +50,29 @@ authForm.addEventListener("submit", async (e) => {
     if (isLoginMode) {
       await signInWithEmailAndPassword(auth, email, password);
     } else {
-      // РЕГИСТРАЦИЯ
-      if (!fullname.trim()) throw { message: "Введите ФИО" }; // Проверка
-      
+      if (!fullname.trim()) throw { message: "Введите ФИО" };
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // Сохраняем ФИО в базу
       await setDoc(doc(db, "users", userCredential.user.uid), {
         fullname: fullname,
         email: email
       });
     }
   } catch (error) {
-    // ... обработка ошибок ...
-    if (error.message === "Введите ФИО") authError.textContent = "Пожалуйста, введите ФИО.";
-    else if (error.code === 'auth/email-already-in-use') authError.textContent = "Этот email уже зарегистрирован.";
-    // и т.д.
+    let message = "Произошла ошибка.";
+    if (error.message === "Введите ФИО") message = "Пожалуйста, введите ФИО.";
+    else if (error.code === 'auth/email-already-in-use') message = "Этот email уже зарегистрирован.";
+    else if (error.code === 'auth/invalid-email') message = "Неверный формат email.";
+    else if (error.code === 'auth/weak-password') message = "Пароль слишком короткий (мин. 6 символов).";
+    else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') message = "Неверный email или пароль.";
+    authError.textContent = message;
   } finally {
     submitBtn.disabled = false;
   }
 });
+
 logoutBtn.addEventListener("click", () => signOut(auth));
 
-// Загрузка экскурсий
-// Загрузка экскурсий
+// --- ЗАГРУЗКА ЭКСКУРСИЙ ---
 async function loadEvents() {
   eventsList.innerHTML = "<p style='text-align: center; color: #94a3b8;'>Загрузка...</p>";
   try {
@@ -79,19 +83,17 @@ async function loadEvents() {
     }
     eventsList.innerHTML = "";
     
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       const date = new Date(data.date).toLocaleString("ru-RU");
       
       const el = document.createElement("div");
       el.className = "event-card";
-      
-      // ВОТ НАША НОВАЯ КНОПКА:
       el.innerHTML = `
         <h3>${data.title}</h3>
         <p>📅 ${date} | 👥 Лимит: ${data.limit} чел.</p>
         <p style="margin-top: 5px; font-size: 12px; color: #cbd5e1;">${data.description || ''}</p>
-        <button onclick="openBookingModal('${doc.id}', ${data.limit}, '${data.title}')">Записаться</button>
+        <button onclick="openBookingModal('${docSnap.id}', ${data.limit}, '${data.title}')">Записаться</button>
         <div style="clear: both;"></div>
       `;
       eventsList.appendChild(el);
@@ -101,68 +103,16 @@ async function loadEvents() {
     eventsList.innerHTML = "<p style='color: #f87171; text-align: center;'>Ошибка загрузки.</p>";
   }
 }
-// Функция записи на экскурсию (глобальная)
-window.registerForEvent = async function(eventId, limit) {
-  const user = auth.currentUser;
-  if (!user) {
-    alert("Вы должны войти в систему!");
-    return;
-  }
 
-  try {
-    // 1. Считаем, сколько людей уже записано на эту экскурсию
-    const regQuery = query(collection(db, "registrations"), where("eventId", "==", eventId));
-    const snapshot = await getCountFromServer(regQuery);
-    const currentCount = snapshot.data().count;
-
-    // 2. Проверяем лимит
-    if (currentCount >= limit) {
-      alert("К сожалению, на эту экскурсию больше нет мест (лимит исчерпан).");
-      return;
-    }
-
-    // 3. Проверяем, не записан ли уже этот пользователь
-    const userQuery = query(collection(db, "registrations"), where("eventId", "==", eventId), where("userId", "==", user.uid));
-    const userSnapshot = await getDocs(userQuery);
-    if (!userSnapshot.empty) {
-      alert("Вы уже записаны на эту экскурсию!");
-      return;
-    }
-
-    // 4. Создаем заявку
-    await addDoc(collection(db, "registrations"), {
-      eventId: eventId,
-      userId: user.uid,
-      userEmail: user.email,
-      createdAt: new Date().toISOString()
-    });
-
-    alert("Вы успешно записались на экскурсию!");
-    
-    // Меняем кнопку, чтобы нельзя было нажать дважды
-    const btn = document.getElementById(`btn-${eventId}`);
-    if (btn) {
-      btn.textContent = "Вы записаны";
-      btn.disabled = true;
-      btn.style.background = "#4ade80";
-    }
-
-  } catch (error) {
-    console.error("Ошибка записи:", error);
-    alert("Произошла ошибка при записи. Попробуйте позже.");
-  }
-};
-// Следим за состоянием авторизации
+// --- СЛЕЖЕНИЕ ЗА АВТОРИЗАЦИЕЙ ---
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     authBlock.classList.add("hidden");
     userBlock.classList.remove("hidden");
     userEmail.textContent = user.email;
 
-    // Запускаем загрузку экскурсий
     loadEvents();
 
-    // Проверка на админа
     try {
       const adminDoc = await getDoc(doc(db, "admins", user.uid));
       const adminBtn = document.getElementById("admin-panel-btn");
@@ -180,7 +130,9 @@ onAuthStateChanged(auth, async (user) => {
     userBlock.classList.add("hidden");
     authForm.reset();
   }
-  // --- ЛОГИКА ЗАПИСИ НА ЭКСКУРСИЮ ---
+});
+
+// --- ЛОГИКА МОДАЛЬНОГО ОКНА ЗАПИСИ ---
 let currentEventId = null;
 let extraGuestCount = 0;
 
@@ -193,6 +145,16 @@ window.openBookingModal = function(eventId, limit, title) {
   document.getElementById("booking-form").reset();
   document.getElementById("booking-modal").classList.remove("hidden");
   document.getElementById("total-price").textContent = "0";
+
+  // Автозаполнение ФИО
+  const user = auth.currentUser;
+  if (user) {
+    getDoc(doc(db, "users", user.uid)).then(docSnap => {
+      if (docSnap.exists()) {
+        document.getElementById("main-guest-name").value = docSnap.data().fullname || "";
+      }
+    });
+  }
 };
 
 window.closeModal = function() {
@@ -241,6 +203,7 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
 
   try {
     const guests = [];
+    
     const mainName = document.getElementById("main-guest-name").value;
     const mainDob = document.getElementById("main-guest-dob").value;
     const mainAge = new Date().getFullYear() - new Date(mainDob).getFullYear();
@@ -273,7 +236,7 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
 
     alert(`Заявка №${listNumber} создана! Сумма к оплате: ${totalPrice} руб. Места будут забронированы после подтверждения оплаты администратором.`);
     closeModal();
-    loadEvents(); // Обновить список
+    loadEvents(); 
 
   } catch (error) {
     console.error("Ошибка:", error);
@@ -283,4 +246,3 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
     submitBtn.textContent = "Подтвердить заявку";
   }
 });
-
