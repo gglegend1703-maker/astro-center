@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { 
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, getDocs, addDoc, query, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc,setDoc, getDoc, collection, getDocs, addDoc, query, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 
 const app = initializeApp(firebaseConfig);
@@ -26,15 +26,19 @@ window.switchTab = function(mode) {
   isLoginMode = (mode === 'login');
   document.getElementById("tab-login").classList.toggle("active", isLoginMode);
   document.getElementById("tab-register").classList.toggle("active", !isLoginMode);
+  
+  // Скрываем/показываем ФИО
+  document.getElementById("fullname-group").classList.toggle("hidden", isLoginMode);
   submitBtn.textContent = isLoginMode ? "Войти" : "Зарегистрироваться";
   authError.textContent = "";
   authForm.reset();
 };
-
 authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = emailInput.value;
   const password = passwordInput.value;
+  const fullname = document.getElementById("fullname").value; // Берем ФИО
+  
   authError.textContent = "";
   submitBtn.disabled = true;
 
@@ -42,20 +46,26 @@ authForm.addEventListener("submit", async (e) => {
     if (isLoginMode) {
       await signInWithEmailAndPassword(auth, email, password);
     } else {
-      await createUserWithEmailAndPassword(auth, email, password);
+      // РЕГИСТРАЦИЯ
+      if (!fullname.trim()) throw { message: "Введите ФИО" }; // Проверка
+      
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Сохраняем ФИО в базу
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        fullname: fullname,
+        email: email
+      });
     }
   } catch (error) {
-    let message = "Произошла ошибка.";
-    if (error.code === 'auth/email-already-in-use') message = "Этот email уже зарегистрирован.";
-    if (error.code === 'auth/invalid-email') message = "Неверный формат email.";
-    if (error.code === 'auth/weak-password') message = "Пароль слишком короткий (мин. 6 символов).";
-    if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') message = "Неверный email или пароль.";
-    authError.textContent = message;
+    // ... обработка ошибок ...
+    if (error.message === "Введите ФИО") authError.textContent = "Пожалуйста, введите ФИО.";
+    else if (error.code === 'auth/email-already-in-use') authError.textContent = "Этот email уже зарегистрирован.";
+    // и т.д.
   } finally {
     submitBtn.disabled = false;
   }
 });
-
 logoutBtn.addEventListener("click", () => signOut(auth));
 
 // Загрузка экскурсий
