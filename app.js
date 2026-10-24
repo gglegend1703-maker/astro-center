@@ -2,8 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { 
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc,setDoc, getDoc, collection, getDocs, addDoc, query, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { firebaseConfig } from "./firebase.js";
+import { getFirestore, doc, getDoc, collection, getDocs, addDoc, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -181,4 +180,107 @@ onAuthStateChanged(auth, async (user) => {
     userBlock.classList.add("hidden");
     authForm.reset();
   }
+  // --- ЛОГИКА ЗАПИСИ НА ЭКСКУРСИЮ ---
+let currentEventId = null;
+let extraGuestCount = 0;
+
+window.openBookingModal = function(eventId, limit, title) {
+  currentEventId = eventId;
+  extraGuestCount = 0;
+  
+  document.getElementById("modal-title").textContent = `Запись: ${title}`;
+  document.getElementById("extra-guests-container").innerHTML = "";
+  document.getElementById("booking-form").reset();
+  document.getElementById("booking-modal").classList.remove("hidden");
+  document.getElementById("total-price").textContent = "0";
+};
+
+window.closeModal = function() {
+  document.getElementById("booking-modal").classList.add("hidden");
+};
+
+document.getElementById("add-guest-btn").addEventListener("click", () => {
+  extraGuestCount++;
+  const container = document.getElementById("extra-guests-container");
+  const div = document.createElement("div");
+  div.style.cssText = "border: 1px solid #334155; padding: 10px; border-radius: 6px; margin-bottom: 10px; position: relative;";
+  div.innerHTML = `
+    <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Гость ${extraGuestCount}</p>
+    <input type="text" class="guest-name" placeholder="ФИО гостя" required style="margin-bottom: 5px;">
+    <input type="date" class="guest-dob" required>
+    <button type="button" onclick="this.parentElement.remove(); calculateTotal();" style="position: absolute; top: 5px; right: 5px; width: auto; background: #ef4444; padding: 2px 8px; font-size: 12px;">✕</button>
+  `;
+  container.appendChild(div);
+  div.querySelector('.guest-dob').addEventListener('change', calculateTotal);
 });
+
+function calculateTotal() {
+  let total = 0;
+  const mainDob = document.getElementById("main-guest-dob").value;
+  if (mainDob) {
+    const age = new Date().getFullYear() - new Date(mainDob).getFullYear();
+    total += (age < 14) ? 6 : 12;
+  }
+  document.querySelectorAll('.guest-dob').forEach(input => {
+    if (input.value) {
+      const age = new Date().getFullYear() - new Date(input.value).getFullYear();
+      total += (age < 14) ? 6 : 12;
+    }
+  });
+  document.getElementById("total-price").textContent = total;
+}
+
+document.getElementById("main-guest-dob").addEventListener("change", calculateTotal);
+
+document.getElementById("booking-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const user = auth.currentUser;
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Создание заявки...";
+
+  try {
+    const guests = [];
+    const mainName = document.getElementById("main-guest-name").value;
+    const mainDob = document.getElementById("main-guest-dob").value;
+    const mainAge = new Date().getFullYear() - new Date(mainDob).getFullYear();
+    guests.push({ name: mainName, dob: mainDob, age: mainAge, isChild: mainAge < 14 });
+
+    const guestNames = document.querySelectorAll('.guest-name');
+    const guestDobs = document.querySelectorAll('.guest-dob');
+    for (let i = 0; i < guestNames.length; i++) {
+      const age = new Date().getFullYear() - new Date(guestDobs[i].value).getFullYear();
+      guests.push({ name: guestNames[i].value, dob: guestDobs[i].value, age: age, isChild: age < 14 });
+    }
+
+    const totalPrice = parseInt(document.getElementById("total-price").textContent);
+    
+    // Генерация порядкового номера
+    const countSnapshot = await getCountFromServer(collection(db, "registrations"));
+    const listNumber = countSnapshot.data().count + 1;
+
+    await addDoc(collection(db, "registrations"), {
+      eventId: currentEventId,
+      eventTitle: document.getElementById("modal-title").textContent.replace("Запись: ", ""),
+      userId: user.uid,
+      userEmail: user.email,
+      guests: guests,
+      totalPrice: totalPrice,
+      listNumber: listNumber,
+      status: "pending",
+      createdAt: new Date().toISOString()
+    });
+
+    alert(`Заявка №${listNumber} создана! Сумма к оплате: ${totalPrice} руб. Места будут забронированы после подтверждения оплаты администратором.`);
+    closeModal();
+    loadEvents(); // Обновить список
+
+  } catch (error) {
+    console.error("Ошибка:", error);
+    alert("Ошибка при создании заявки.");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Подтвердить заявку";
+  }
+});
+
