@@ -66,9 +66,12 @@
     </div>
   </div>
   
-    <!-- НОВАЯ КАРТОЧКА: Список гостей -->
+       <!-- НОВАЯ КАРТОЧКА: Список гостей -->
     <div class="card events-list" style="width: 100%; max-width: 100%; margin-top: 20px;">
-      <h2>Список всех гостей (заявок)</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0;">Список всех гостей (заявок)</h2>
+        <button onclick="downloadWord()" style="background: #3b82f6; width: auto; padding: 10px 20px; margin: 0;">📄 Скачать Word</button>
+      </div>
       <div id="guests-container" style="overflow-x: auto;">Загрузка...</div>
     </div>
   
