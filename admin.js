@@ -241,7 +241,7 @@ if (newsForm) {
 
       if (file) {
         // ВСТАВЬТЕ СЮДА ВАШ КЛЮЧ IMGBB
-        const IMGBB_API_KEY = "ВАШ_КЛЮЧ_ЗДЕСЬ"; 
+        const IMGBB_API_KEY = d24bd2790ad860c507ebda4faef55517; 
         
         const formData = new FormData();
         formData.append("image", file);
