@@ -9,8 +9,14 @@
     .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 15px; margin-bottom: 20px; }
     h1 { color: #a78bfa; margin: 0; }
     .back-btn { text-decoration: none; color: white; background: #475569; padding: 8px 15px; border-radius: 6px; }
-    .container { display: flex; gap: 20px; flex-wrap: wrap; }
-    .card { background: #1e293b; padding: 20px; border-radius: 8px; width: 100%; max-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    
+    /* Контейнер теперь выстраивает элементы в колонку */
+    .container { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 1200px; margin: 0 auto; }
+    
+    .card { background: #1e293b; padding: 20px; border-radius: 8px; width: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.3); box-sizing: border-box; }
+    .card-row { display: flex; gap: 20px; flex-wrap: wrap; }
+    .card-half { flex: 1; min-width: 300px; }
+    
     h2 { margin-top: 0; color: #cbd5e1; font-size: 18px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
     .form-group { margin-bottom: 15px; }
     label { display: block; margin-bottom: 5px; color: #94a3b8; font-size: 14px; }
@@ -18,7 +24,7 @@
     input:focus, textarea:focus { border-color: #a78bfa; outline: none; }
     button { width: 100%; padding: 10px; background: #8b5cf6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
     button:hover { background: #7c3aed; }
-    .events-list { max-width: 100%; width: 100%; }
+    
     .event-item { background: #0f172a; padding: 15px; border-radius: 4px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #8b5cf6; }
     .event-info h3 { margin: 0 0 5px 0; color: #a78bfa; }
     .event-info p { margin: 0; font-size: 14px; color: #94a3b8; }
@@ -34,46 +40,49 @@
   </div>
 
   <div class="container">
-    <!-- Форма создания экскурсии -->
-    <div class="card">
-      <h2>Создать новую экскурсию</h2>
-      <form id="create-event-form">
-        <div class="form-group">
-          <label>Название экскурсии</label>
-          <input type="text" id="event-title" placeholder="Например: Ночное небо Марса" required>
-        </div>
-        <div class="form-group">
-          <label>Дата и время</label>
-          <input type="datetime-local" id="event-date" required>
-        </div>
-        <div class="form-group">
-          <label>Лимит мест (гостей)</label>
-          <input type="number" id="event-limit" placeholder="Например: 15" min="1" required>
-        </div>
-        <div class="form-group">
-          <label>Краткое описание</label>
-          <textarea id="event-desc" rows="3" placeholder="Что будет на экскурсии..."></textarea>
-        </div>
-        <button type="submit">Добавить экскурсию</button>
-      </form>
-      <div id="form-message"></div>
+    <!-- Верхний ряд: Форма и Экскурсии -->
+    <div class="card-row">
+      <!-- Форма создания экскурсии -->
+      <div class="card card-half">
+        <h2>Создать новую экскурсию</h2>
+        <form id="create-event-form">
+          <div class="form-group">
+            <label>Название экскурсии</label>
+            <input type="text" id="event-title" placeholder="Например: Ночное небо Марса" required>
+          </div>
+          <div class="form-group">
+            <label>Дата и время</label>
+            <input type="datetime-local" id="event-date" required>
+          </div>
+          <div class="form-group">
+            <label>Лимит мест (гостей)</label>
+            <input type="number" id="event-limit" placeholder="Например: 15" min="1" required>
+          </div>
+          <div class="form-group">
+            <label>Краткое описание</label>
+            <textarea id="event-desc" rows="3" placeholder="Что будет на экскурсии..."></textarea>
+          </div>
+          <button type="submit">Добавить экскурсию</button>
+        </form>
+        <div id="form-message"></div>
+      </div>
+
+      <!-- Список экскурсий -->
+      <div class="card card-half">
+        <h2>Существующие экскурсии</h2>
+        <div id="events-container">Загрузка...</div>
+      </div>
     </div>
 
-    <!-- Список существующих экскурсий -->
-    <div class="card events-list">
-      <h2>Существующие экскурсии</h2>
-      <div id="events-container">Загрузка...</div>
-    </div>
-  </div>
-  
-       <!-- НОВАЯ КАРТОЧКА: Список гостей -->
-    <div class="card events-list" style="width: 100%; max-width: 100%; margin-top: 20px;">
+    <!-- Нижний ряд: Гости -->
+    <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h2 style="margin: 0;">Список всех гостей (заявок)</h2>
+        <h2 style="margin: 0; border: none; padding: 0;">Список всех гостей (заявок)</h2>
         <button onclick="downloadWord()" style="background: #3b82f6; width: auto; padding: 10px 20px; margin: 0;">📄 Скачать Word</button>
       </div>
       <div id="guests-container" style="overflow-x: auto;">Загрузка...</div>
     </div>
+  </div>
   
   <script type="module" src="admin.js"></script>
 </body>
