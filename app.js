@@ -128,7 +128,8 @@ async function loadNews() {
       
       let imgHtml = "";
       if (data.imageUrl) {
-        imgHtml = `<img src="${data.imageUrl}" style="width: 100%; max-height: 200px; object-fit: cover; border-radius: 4px; margin-bottom: 10px;">`;
+        const safeAlt = String(data.title || "").replace(/"/g, "&quot;");
+        imgHtml = `<img class="news-image" src="${data.imageUrl}" alt="${safeAlt}">`;
       }
 
       el.innerHTML = `
