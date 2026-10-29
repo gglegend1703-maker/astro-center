@@ -232,22 +232,28 @@
   <div id="booking-modal" class="modal-overlay hidden">
     <div class="modal-content">
       <h2 id="modal-title" style="color: #a78bfa; margin-top: 0;">Запись на экскурсию</h2>
-      <form id="booking-form">
-        <h3 style="color: #cbd5e1; font-size: 16px; margin-bottom: 10px;">Кто пойдет (вы):</h3>
-        <div class="form-group">
-          <input type="text" id="main-guest-name" placeholder="Ваше ФИО" required>
+            <form id="booking-form">
+        <h3 style="color: #cbd5e1; font-size: 16px; margin-bottom: 10px;">Взрослые (полная стоимость):</h3>
+        <div id="adults-container">
+          <div class="form-group">
+            <input type="text" class="adult-name" placeholder="ФИО взрослого" required>
+          </div>
         </div>
-        <div class="form-group">
-          <label style="font-size: 14px; color: #94a3b8;">Дата рождения (если младше 14 лет будет скидка):</label>
-          <input type="date" id="main-guest-dob" required>
-        </div>
-        <h3 style="color: #cbd5e1; font-size: 16px; margin: 20px 0 10px 0;">Дополнительные гости:</h3>
-        <div id="extra-guests-container"></div>
-        <button type="button" id="add-guest-btn" style="background: #475569; margin-bottom: 20px;">+ Добавить гостя</button>
+        
+        <h3 style="color: #cbd5e1; font-size: 16px; margin: 20px 0 10px 0;">Дети (до 14 лет, скидка 50%):</h3>
+        <div id="children-container"></div>
+        <button type="button" id="add-child-btn" style="background: #475569; margin-bottom: 20px;">+ Добавить ребенка</button>
+
         <hr style="border-color: #334155; margin: 20px 0;">
+        
         <h3 style="color: #4ade80; font-size: 18px; margin: 0;">Итого к оплате: <span id="total-price">0</span> руб.</h3>
         <p style="font-size: 12px; color: #94a3b8; margin-top: 5px;">Взрослый: 12 руб. | Детский (до 14 лет): 6 руб.</p>
-        <button type="submit" style="margin-top: 20px;">Подтвердить заявку</button>
+
+        <p style="font-size: 13px; color: #f87171; margin-top: 15px; line-height: 1.4;">
+          Нажимая кнопку "Поехали!" вы, как лидер своей группы, подтверждаете, что произведете оплату экскурсии в размере <b id="confirm-price-text">0</b> рублей. Чек оплаты нужно будет показать специалисту Астрономического центра (можно на экране смартфона).
+        </p>
+
+        <button type="submit" style="margin-top: 15px; background: #10b981;">Поехали!</button>
         <button type="button" onclick="closeModal()" style="background: transparent; border: 1px solid #f87171; color: #f87171; margin-top: 10px;">Отмена</button>
       </form>
     </div>
