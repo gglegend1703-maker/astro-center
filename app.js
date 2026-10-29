@@ -238,6 +238,15 @@ onAuthStateChanged(auth, async (user) => {
     userBlock.classList.add("hidden");
     authForm.reset();
   }
+  try {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        const fullname = userDoc.data().fullname || user.email;
+        // Берем только имя (первое слово из ФИО), если там есть пробелы
+        const firstName = fullname.trim().split(" ")[1] || fullname; 
+        document.getElementById("welcome-text").textContent = `Добро пожаловать, ${firstName}!`;
+      }
+    } catch (e) { console.log(e); }
 });
 
 // --- ЛОГИКА МОДАЛЬНОГО ОКНА ЗАПИСИ ---
