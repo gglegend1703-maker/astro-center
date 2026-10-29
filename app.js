@@ -176,7 +176,6 @@ onAuthStateChanged(auth, async (user) => {
     userEmailDisplay.textContent = user.email;
     userBlock.classList.remove("hidden");
 
-    // Приветствие
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
@@ -209,12 +208,10 @@ onAuthStateChanged(auth, async (user) => {
 
 // --- МОДАЛЬНОЕ ОКНО ЗАПИСИ ---
 let currentEventId = null;
-let adultCount = 1;
 let childCount = 0;
 
 window.openBookingModal = function(eventId, limit, title) {
   currentEventId = eventId;
-  adultCount = 1;
   childCount = 0;
   
   document.getElementById("modal-title").textContent = `Запись: ${title}`;
