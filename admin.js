@@ -237,11 +237,11 @@ window.downloadWord = async function() {
 
     htmlContent += `</body></html>`;
 
-    const blob = new Blob([htmlContent], { type: 'application/msword' });
+    const blob = new Blob([htmlContent], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "Списки_гостей_по_экскурсиям.doc";
+    a.download = "Списки_гостей_по_экскурсиям.docx";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
