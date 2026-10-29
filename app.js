@@ -13,8 +13,10 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- ЭЛЕМЕНТЫ СТРАНИЦЫ ---
-const authBlock = document.getElementById("auth-block");
 const userBlock = document.getElementById("user-block");
+const loginHeaderBtn = document.getElementById("login-header-btn");
+const userHeaderBlock = document.getElementById("user-header-block");
+const userEmailDisplay = document.getElementById("user-email-display");
 const authForm = document.getElementById("auth-form");
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
@@ -49,6 +51,7 @@ authForm.addEventListener("submit", async (e) => {
   try {
     if (isLoginMode) {
       await signInWithEmailAndPassword(auth, email, password);
+      closeAuthModal();
     } else {
       if (!fullname.trim()) throw { message: "Введите ФИО" };
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -148,12 +151,13 @@ async function loadNews() {
 // --- СЛЕЖЕНИЕ ЗА АВТОРИЗАЦИЕЙ ---
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    authBlock.classList.add("hidden");
+    // Пользователь вошел
+    loginHeaderBtn.classList.add("hidden");
+    userHeaderBlock.classList.remove("hidden");
+    userEmailDisplay.textContent = user.email;
     userBlock.classList.remove("hidden");
-    userEmail.textContent = user.email;
 
     loadEvents();
-    loadNews(); // Запускаем загрузку новостей
 
     try {
       const adminDoc = await getDoc(doc(db, "admins", user.uid));
@@ -168,7 +172,9 @@ onAuthStateChanged(auth, async (user) => {
       console.error("Ошибка при проверке прав:", error);
     }
   } else {
-    authBlock.classList.remove("hidden");
+    // Пользователь вышел
+    loginHeaderBtn.classList.remove("hidden");
+    userHeaderBlock.classList.add("hidden");
     userBlock.classList.add("hidden");
     authForm.reset();
   }
@@ -295,4 +301,11 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
 // --- ЗАКРЫТИЕ ОКНА ОПЛАТЫ ---
 window.closePaymentModal = function() {
   document.getElementById("payment-modal").classList.add("hidden");
+};
+// Открытие/закрытие окна авторизации
+window.openAuthModal = function() {
+  document.getElementById("auth-modal").classList.remove("hidden");
+};
+window.closeAuthModal = function() {
+  document.getElementById("auth-modal").classList.add("hidden");
 };
