@@ -7,12 +7,10 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ВОТ ЗДЕСЬ БЫЛА ОШИБКА — мы объявляем переменные:
 const form = document.getElementById("create-event-form");
 const formMessage = document.getElementById("form-message");
 const eventsContainer = document.getElementById("events-container");
 
-// 1. Проверка авторизации
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
@@ -33,7 +31,6 @@ onAuthStateChanged(auth, async (user) => {
   loadGuests();
 });
 
-// 2. Загрузка экскурсий
 async function loadEvents() {
   eventsContainer.innerHTML = "Загрузка...";
   try {
@@ -61,7 +58,6 @@ async function loadEvents() {
   }
 }
 
-// 3. Загрузка гостей (с кнопками подтверждения)
 async function loadGuests() {
   const container = document.getElementById("guests-container");
   container.innerHTML = "Загрузка...";
@@ -121,7 +117,6 @@ async function loadGuests() {
   }
 }
 
-// 4. Подтверждение оплаты
 window.confirmPayment = async function(regId) {
   if (!confirm("Вы уверены, что оплата поступила? Места будут забронированы.")) return;
   try {
@@ -133,12 +128,10 @@ window.confirmPayment = async function(regId) {
   }
 };
 
-// 5. Генерация Word (в формате .docx)
 window.downloadWord = async function() {
   try {
     const q = query(collection(db, "registrations"), where("status", "==", "paid"));
     const snapshot = await getDocs(q);
-    
     if (snapshot.empty) {
       alert("Нет оплаченных заявок для формирования списка.");
       return;
@@ -152,16 +145,13 @@ window.downloadWord = async function() {
     });
 
     const guestsByEvent = {};
-
     snapshot.forEach(doc => {
       const data = doc.data();
       const eventId = data.eventId;
       const eventInfo = eventsMap[eventId] || { title: "Неизвестная экскурсия", date: "" };
-
       if (!guestsByEvent[eventId]) {
         guestsByEvent[eventId] = { title: eventInfo.title, date: eventInfo.date, guests: [] };
       }
-
       if (data.guests && Array.isArray(data.guests)) {
         data.guests.forEach(g => {
           guestsByEvent[eventId].guests.push({ name: g.name.toUpperCase(), isChild: g.isChild });
@@ -201,7 +191,6 @@ window.downloadWord = async function() {
     }
     htmlContent += `</body></html>`;
 
-    // Скачивание в формате .docx
     const blob = new Blob([htmlContent], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -217,7 +206,6 @@ window.downloadWord = async function() {
   }
 };
 
-// 6. Создание экскурсии
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   formMessage.textContent = "Создание...";
@@ -239,7 +227,6 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
-// 7. Создание новости (через ImgBB)
 const newsForm = document.getElementById("create-news-form");
 const newsMessage = document.getElementById("news-message");
 
