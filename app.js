@@ -22,11 +22,19 @@ const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const submitBtn = document.getElementById("submit-btn");
 const authError = document.getElementById("auth-error");
-const userEmail = document.getElementById("user-email");
 const logoutBtn = document.getElementById("logout-btn");
 const eventsList = document.getElementById("events-list");
 
 let isLoginMode = true;
+
+// --- УПРАВЛЕНИЕ МОДАЛЬНЫМ ОКНОМ ВХОДА ---
+window.openAuthModal = function() {
+  document.getElementById("auth-modal").classList.remove("hidden");
+};
+
+window.closeAuthModal = function() {
+  document.getElementById("auth-modal").classList.add("hidden");
+};
 
 // --- ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК (ВХОД / РЕГИСТРАЦИЯ) ---
 window.switchTab = function(mode) {
@@ -51,7 +59,6 @@ authForm.addEventListener("submit", async (e) => {
   try {
     if (isLoginMode) {
       await signInWithEmailAndPassword(auth, email, password);
-      closeAuthModal();
     } else {
       if (!fullname.trim()) throw { message: "Введите ФИО" };
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -60,6 +67,7 @@ authForm.addEventListener("submit", async (e) => {
         email: email
       });
     }
+    closeAuthModal(); // Закрываем окно после успеха
   } catch (error) {
     let message = "Произошла ошибка.";
     if (error.message === "Введите ФИО") message = "Пожалуйста, введите ФИО.";
@@ -91,12 +99,12 @@ async function loadEvents() {
       const date = new Date(data.date).toLocaleString("ru-RU");
       
       const el = document.createElement("div");
-      el.className = "event-card";
+      el.className = "card event-card";
       el.innerHTML = `
         <h3>${data.title}</h3>
         <p>📅 ${date} | 👥 Лимит: ${data.limit} чел.</p>
         <p style="margin-top: 5px; font-size: 12px; color: #cbd5e1;">${data.description || ''}</p>
-        <button onclick="openBookingModal('${docSnap.id}', ${data.limit}, '${data.title}')">Записаться</button>
+        <button style="width: auto; padding: 8px 15px; font-size: 14px; margin-top: 10px; float: right;" onclick="openBookingModal('${docSnap.id}', ${data.limit}, '${data.title}')">Записаться</button>
         <div style="clear: both;"></div>
       `;
       eventsList.appendChild(el);
@@ -127,12 +135,11 @@ async function loadNews() {
 
     newsArray.forEach(data => {
       const el = document.createElement("div");
-      el.className = "news-card";
+      el.className = "card news-card";
       
       let imgHtml = "";
       if (data.imageUrl) {
-        const safeAlt = String(data.title || "").replace(/"/g, "&quot;");
-        imgHtml = `<img class="news-image" src="${data.imageUrl}" alt="${safeAlt}">`;
+        imgHtml = `<img src="${data.imageUrl}" alt="Фото новости">`;
       }
 
       el.innerHTML = `
@@ -250,7 +257,6 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
 
   try {
     const guests = [];
-    
     const mainName = document.getElementById("main-guest-name").value;
     const mainDob = document.getElementById("main-guest-dob").value;
     const mainAge = new Date().getFullYear() - new Date(mainDob).getFullYear();
@@ -264,7 +270,6 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
     }
 
     const totalPrice = parseInt(document.getElementById("total-price").textContent);
-    
     const countSnapshot = await getCountFromServer(collection(db, "registrations"));
     const listNumber = countSnapshot.data().count + 1;
 
@@ -280,13 +285,12 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
       createdAt: new Date().toISOString()
     });
 
-    // ПОКАЗЫВАЕМ ОКНО С ИНСТРУКЦИЕЙ ЕРИП
     document.getElementById("pay-list-number").textContent = listNumber;
     document.getElementById("pay-total-price").textContent = totalPrice;
     document.getElementById("pay-number-instruction").textContent = listNumber;
     
-    closeModal(); // Закрываем окно записи
-    document.getElementById("payment-modal").classList.remove("hidden"); // Открываем окно оплаты
+    closeModal();
+    document.getElementById("payment-modal").classList.remove("hidden");
     loadEvents(); 
 
   } catch (error) {
@@ -298,14 +302,9 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
   }
 });
 
-// --- ЗАКРЫТИЕ ОКНА ОПЛАТЫ ---
 window.closePaymentModal = function() {
   document.getElementById("payment-modal").classList.add("hidden");
 };
-// Открытие/закрытие окна авторизации
-window.openAuthModal = function() {
-  document.getElementById("auth-modal").classList.remove("hidden");
-};
-window.closeAuthModal = function() {
-  document.getElementById("auth-modal").classList.add("hidden");
-};
+
+// Запускаем загрузку новостей сразу при открытии страницы
+loadNews();
