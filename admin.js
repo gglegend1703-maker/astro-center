@@ -133,8 +133,10 @@ window.confirmPayment = async function(regId) {
 };
 
 // 5. Генерация Word
+// 5. Генерация Word (группировка по экскурсиям, сортировка по алфавиту)
 window.downloadWord = async function() {
   try {
+    // Получаем все оплаченные заявки
     const q = query(collection(db, "registrations"), where("status", "==", "paid"));
     const snapshot = await getDocs(q);
     
@@ -143,16 +145,123 @@ window.downloadWord = async function() {
       return;
     }
 
-    let allGuests = [];
+    // Получаем экскурсии, чтобы знать их дату и время
+    const eventsSnapshot = await getDocs(collection(db, "events"));
+    const eventsMap = {};
+    eventsSnapshot.forEach(doc => {
+      const data = doc.data();
+      // Сохраняем данные экскурсии по её ID
+      eventsMap[doc.id] = {
+        title: data.title,
+        date: data.date // формат "YYYY-MM-DDTHH:mm"
+      };
+    });
+
+    // Группируем гостей по ID экскурсии
+    const guestsByEvent = {};
+
     snapshot.forEach(doc => {
       const data = doc.data();
+      const eventId = data.eventId;
+      const eventInfo = eventsMap[eventId] || { title: "Неизвестная экскурсия", date: "" };
+
+      if (!guestsByEvent[eventId]) {
+        guestsByEvent[eventId] = {
+          title: eventInfo.title,
+          date: eventInfo.date,
+          guests: []
+        };
+      }
+
       if (data.guests && Array.isArray(data.guests)) {
         data.guests.forEach(g => {
-          allGuests.push({ name: g.name.toUpperCase(), isChild: g.isChild, event: data.eventTitle });
+          guestsByEvent[eventId].guests.push({
+            name: g.name.toUpperCase(),
+            isChild: g.isChild
+          });
         });
       }
     });
 
+    // Начинаем формировать HTML для Word
+    let htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset="utf-8">
+        <title>Списки гостей</title>
+        <style>
+          body { font-family: 'Times New Roman', serif; }
+          h2 { margin-bottom: 5px; }
+          .event-header { margin-top: 30px; margin-bottom: 10px; background: #f0f0f0; padding: 10px; border-left: 4px solid #4CAF50; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+          th { background-color: #e0e0e0; }
+        </style>
+      </head>
+      <body>
+        <h1 style="text-align: center;">Списки гостей обсерватории</h1>
+    `;
+
+    // Перебираем каждую экскурсию
+    for (const eventId in guestsByEvent) {
+      const eventData = guestsByEvent[eventId];
+      
+      // Форматируем дату и время для красивого вывода
+      let dateStr = "Дата не указана";
+      let timeStr = "";
+      if (eventData.date) {
+        const d = new Date(eventData.date);
+        dateStr = d.toLocaleDateString("ru-RU");
+        timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
+      }
+
+      // Сортируем гостей этой экскурсии по алфавиту
+      eventData.guests.sort((a, b) => a.name.localeCompare(b.name));
+
+      htmlContent += `
+        <div class="event-header">
+          <h2>Экскурсия: ${eventData.title}</h2>
+          <p style="margin: 0;">Дата: ${dateStr} | Время: ${timeStr}</p>
+        </div>
+        <table>
+          <tr>
+            <th style="width: 50px;">№</th>
+            <th>ФИО</th>
+            <th style="width: 150px;">Категория</th>
+          </tr>
+      `;
+
+      eventData.guests.forEach((guest, index) => {
+        htmlContent += `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${guest.name}</td>
+            <td>${guest.isChild ? "Ребенок (до 14 лет)" : "Взрослый"}</td>
+          </tr>
+        `;
+      });
+
+      htmlContent += `</table>`;
+    }
+
+    htmlContent += `</body></html>`;
+
+    // Скачиваем файл
+    const blob = new Blob([htmlContent], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Списки_гостей_по_экскурсиям.doc";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+  } catch (error) {
+    console.error("Ошибка генерации Word:", error);
+    alert("Ошибка при создании файла.");
+  }
+};
     allGuests.sort((a, b) => a.name.localeCompare(b.name));
 
     let htmlContent = `
