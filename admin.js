@@ -132,11 +132,9 @@ window.confirmPayment = async function(regId) {
   }
 };
 
-// 5. Генерация Word
 // 5. Генерация Word (группировка по экскурсиям, сортировка по алфавиту)
 window.downloadWord = async function() {
   try {
-    // Получаем все оплаченные заявки
     const q = query(collection(db, "registrations"), where("status", "==", "paid"));
     const snapshot = await getDocs(q);
     
@@ -145,19 +143,16 @@ window.downloadWord = async function() {
       return;
     }
 
-    // Получаем экскурсии, чтобы знать их дату и время
     const eventsSnapshot = await getDocs(collection(db, "events"));
     const eventsMap = {};
     eventsSnapshot.forEach(doc => {
       const data = doc.data();
-      // Сохраняем данные экскурсии по её ID
       eventsMap[doc.id] = {
         title: data.title,
-        date: data.date // формат "YYYY-MM-DDTHH:mm"
+        date: data.date
       };
     });
 
-    // Группируем гостей по ID экскурсии
     const guestsByEvent = {};
 
     snapshot.forEach(doc => {
@@ -183,7 +178,6 @@ window.downloadWord = async function() {
       }
     });
 
-    // Начинаем формировать HTML для Word
     let htmlContent = `
       <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
       <head>
@@ -202,11 +196,9 @@ window.downloadWord = async function() {
         <h1 style="text-align: center;">Списки гостей обсерватории</h1>
     `;
 
-    // Перебираем каждую экскурсию
     for (const eventId in guestsByEvent) {
       const eventData = guestsByEvent[eventId];
       
-      // Форматируем дату и время для красивого вывода
       let dateStr = "Дата не указана";
       let timeStr = "";
       if (eventData.date) {
@@ -215,7 +207,6 @@ window.downloadWord = async function() {
         timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
       }
 
-      // Сортируем гостей этой экскурсии по алфавиту
       eventData.guests.sort((a, b) => a.name.localeCompare(b.name));
 
       htmlContent += `
@@ -246,7 +237,6 @@ window.downloadWord = async function() {
 
     htmlContent += `</body></html>`;
 
-    // Скачиваем файл
     const blob = new Blob([htmlContent], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -257,49 +247,6 @@ window.downloadWord = async function() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-  } catch (error) {
-    console.error("Ошибка генерации Word:", error);
-    alert("Ошибка при создании файла.");
-  }
-};
-    allGuests.sort((a, b) => a.name.localeCompare(b.name));
-
-    let htmlContent = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head><meta charset="utf-8"><title>Список гостей</title></head>
-      <body>
-        <h2 style="text-align: center;">Список гостей обсерватории (алфавитный порядок)</h2>
-        <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse;">
-          <tr style="background-color: #f2f2f2;">
-            <th>№</th>
-            <th>ФИО</th>
-            <th>Категория</th>
-            <th>Экскурсия</th>
-          </tr>
-    `;
-
-    allGuests.forEach((guest, index) => {
-      htmlContent += `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${guest.name}</td>
-          <td>${guest.isChild ? "Ребенок (до 14 лет)" : "Взрослый"}</td>
-          <td>${guest.event}</td>
-        </tr>
-      `;
-    });
-
-    htmlContent += `</table></body></html>`;
-
-    const blob = new Blob([htmlContent], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "Список_гостей_обсерватории.doc";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   } catch (error) {
     console.error("Ошибка генерации Word:", error);
     alert("Ошибка при создании файла.");
@@ -349,14 +296,13 @@ if (newsForm) {
       let imageUrl = "";
 
       if (file) {
-        // ВСТАВЬТЕ СЮДА ВАШ КЛЮЧ IMGBB
+        // ВСТАВЬТЕ СЮДА ВАШ КЛЮЧ IMGBB (в кавычках!)
         const IMGBB_API_KEY = "d24bd2790ad860c507ebda4faef55517"; 
         
         const formData = new FormData();
         formData.append("image", file);
-        formData.append("key", IMGBB_API_KEY);
 
-        const response = await fetch("https://api.imgbb.com/1/upload", {
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
           method: "POST",
           body: formData
         });
