@@ -3,7 +3,6 @@ import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { 
- import { 
   getFirestore, doc, getDoc, collection, getDocs, addDoc, getCountFromServer, setDoc, query, where 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
@@ -68,7 +67,7 @@ authForm.addEventListener("submit", async (e) => {
         email: email
       });
     }
-    closeAuthModal(); // Закрываем окно после успеха
+    closeAuthModal(); 
   } catch (error) {
     let message = "Произошла ошибка.";
     if (error.message === "Введите ФИО") message = "Пожалуйста, введите ФИО.";
@@ -156,16 +155,71 @@ async function loadNews() {
   }
 }
 
+// --- ЗАГРУЗКА МОИХ ЗАЯВОК ---
+async function loadMyRegistrations() {
+  const container = document.getElementById("my-registrations-list");
+  const user = auth.currentUser;
+  if (!user || !container) return;
+
+  try {
+    // Ищем только заявки текущего пользователя
+    const q = query(collection(db, "registrations"), where("userId", "==", user.uid));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      container.innerHTML = "<p style='color: #94a3b8; text-align: center;'>Вы пока никуда не записаны.</p>";
+      return;
+    }
+
+    container.innerHTML = "";
+
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      
+      let statusText = "⏳ Ожидает оплаты";
+      let statusColor = "#fbbf24"; 
+      if (data.status === "paid") {
+        statusText = "✅ Оплачено (место забронировано)";
+        statusColor = "#4ade80"; 
+      }
+
+      let guestsHtml = "";
+      if (data.guests && Array.isArray(data.guests)) {
+        guestsHtml = data.guests.map(g => `• ${g.name} ${g.isChild ? '(реб.)' : ''}`).join("<br>");
+      }
+
+      const el = document.createElement("div");
+      el.className = "card";
+      el.style.borderLeft = `4px solid ${statusColor}`;
+      el.innerHTML = `
+        <h3 style="margin: 0 0 10px 0; color: #a78bfa; font-size: 18px;">${data.eventTitle}</h3>
+        <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Заявка № <b>${data.listNumber}</b></p>
+        <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Сумма: <b>${data.totalPrice} руб.</b></p>
+        <p style="margin: 0 0 10px 0; font-size: 14px; color: ${statusColor}; font-weight: bold;">Статус: ${statusText}</p>
+        <div style="font-size: 13px; color: #94a3b8; background: #0f172a; padding: 10px; border-radius: 6px;">
+          <b>Гости:</b><br>${guestsHtml || '—'}
+        </div>
+      `;
+      container.appendChild(el);
+    });
+
+  } catch (error) {
+    console.error("Ошибка загрузки моих заявок:", error);
+    container.innerHTML = "<p style='color: #f87171; text-align: center;'>Ошибка загрузки заявок.</p>";
+  }
+}
+
 // --- СЛЕЖЕНИЕ ЗА АВТОРИЗАЦИЕЙ ---
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    // Пользователь вошел
     loginHeaderBtn.classList.add("hidden");
     userHeaderBlock.classList.remove("hidden");
     userEmailDisplay.textContent = user.email;
     userBlock.classList.remove("hidden");
+
     loadEvents();
-    loadMyRegistrations();
+    loadMyRegistrations(); // Загружаем заявки пользователя
+
     try {
       const adminDoc = await getDoc(doc(db, "admins", user.uid));
       const adminBtn = document.getElementById("admin-panel-btn");
@@ -179,7 +233,6 @@ onAuthStateChanged(auth, async (user) => {
       console.error("Ошибка при проверке прав:", error);
     }
   } else {
-    // Пользователь вышел
     loginHeaderBtn.classList.remove("hidden");
     userHeaderBlock.classList.add("hidden");
     userBlock.classList.add("hidden");
@@ -292,7 +345,7 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
     closeModal();
     document.getElementById("payment-modal").classList.remove("hidden");
     loadEvents(); 
-
+    loadMyRegistrations(); // Обновляем список "Моих заявок"
   } catch (error) {
     console.error("Ошибка:", error);
     alert("Ошибка при создании заявки.");
@@ -308,58 +361,3 @@ window.closePaymentModal = function() {
 
 // Запускаем загрузку новостей сразу при открытии страницы
 loadNews();
-// --- ЗАГРУЗКА МОИХ ЗАЯВОК ---
-async function loadMyRegistrations() {
-  const container = document.getElementById("my-registrations-list");
-  const user = auth.currentUser;
-  if (!user || !container) return;
-
-  try {
-    // Ищем только заявки текущего пользователя
-    const q = query(collection(db, "registrations"), where("userId", "==", user.uid));
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-      container.innerHTML = "<p style='color: #94a3b8; text-align: center;'>Вы пока никуда не записаны.</p>";
-      return;
-    }
-
-    container.innerHTML = "";
-
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      
-      // Определяем статус
-      let statusText = "⏳ Ожидает оплаты";
-      let statusColor = "#fbbf24"; // Желтый
-      if (data.status === "paid") {
-        statusText = "✅ Оплачено (место забронировано)";
-        statusColor = "#4ade80"; // Зеленый
-      }
-
-      // Формируем список гостей
-      let guestsHtml = "";
-      if (data.guests && Array.isArray(data.guests)) {
-        guestsHtml = data.guests.map(g => `• ${g.name} ${g.isChild ? '(реб.)' : ''}`).join("<br>");
-      }
-
-      const el = document.createElement("div");
-      el.className = "card";
-      el.style.borderLeft = `4px solid ${statusColor}`;
-      el.innerHTML = `
-        <h3 style="margin: 0 0 10px 0; color: #a78bfa; font-size: 18px;">${data.eventTitle}</h3>
-        <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Заявка № <b>${data.listNumber}</b></p>
-        <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Сумма: <b>${data.totalPrice} руб.</b></p>
-        <p style="margin: 0 0 10px 0; font-size: 14px; color: ${statusColor}; font-weight: bold;">Статус: ${statusText}</p>
-        <div style="font-size: 13px; color: #94a3b8; background: #0f172a; padding: 10px; border-radius: 6px;">
-          <b>Гости:</b><br>${guestsHtml || '—'}
-        </div>
-      `;
-      container.appendChild(el);
-    });
-
-  } catch (error) {
-    console.error("Ошибка загрузки моих заявок:", error);
-    container.innerHTML = "<p style='color: #f87171; text-align: center;'>Ошибка загрузки заявок.</p>";
-  }
-}
