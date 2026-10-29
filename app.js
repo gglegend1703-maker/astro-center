@@ -1,322 +1,277 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, getDocs, addDoc, getCountFromServer, setDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// --- ЭЛЕМЕНТЫ СТРАНИЦЫ ---
-const userBlock = document.getElementById("user-block");
-const loginHeaderBtn = document.getElementById("login-header-btn");
-const userHeaderBlock = document.getElementById("user-header-block");
-const userEmailDisplay = document.getElementById("user-email-display");
-const authForm = document.getElementById("auth-form");
-const emailInput = document.getElementById("email");
-const passwordInput = document.getElementById("password");
-const submitBtn = document.getElementById("submit-btn");
-const authError = document.getElementById("auth-error");
-const logoutBtn = document.getElementById("logout-btn");
-const eventsList = document.getElementById("events-list");
+// ВОТ ЗДЕСЬ БЫЛА ОШИБКА — мы объявляем переменные:
+const form = document.getElementById("create-event-form");
+const formMessage = document.getElementById("form-message");
+const eventsContainer = document.getElementById("events-container");
 
-let isLoginMode = true;
-
-// --- УПРАВЛЕНИЕ МОДАЛЬНЫМ ОКНОМ ВХОДА ---
-window.openAuthModal = function() { document.getElementById("auth-modal").classList.remove("hidden"); };
-window.closeAuthModal = function() { document.getElementById("auth-modal").classList.add("hidden"); };
-
-// --- ВКЛАДКИ ВХОД/РЕГИСТРАЦИЯ ---
-window.switchTab = function(mode) {
-  isLoginMode = (mode === 'login');
-  document.getElementById("tab-login").classList.toggle("active", isLoginMode);
-  document.getElementById("tab-register").classList.toggle("active", !isLoginMode);
-  document.getElementById("fullname-group").classList.toggle("hidden", isLoginMode);
-  submitBtn.textContent = isLoginMode ? "Войти" : "Зарегистрироваться";
-  authError.textContent = "";
-  authForm.reset();
-};
-
-// --- ОБРАБОТКА ВХОДА / РЕГИСТРАЦИИ ---
-authForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const email = emailInput.value;
-  const password = passwordInput.value;
-  const fullname = document.getElementById("fullname").value;
-  authError.textContent = "";
-  submitBtn.disabled = true;
-
-  try {
-    if (isLoginMode) {
-      await signInWithEmailAndPassword(auth, email, password);
-    } else {
-      if (!fullname.trim()) throw { message: "Введите ФИО" };
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await setDoc(doc(db, "users", userCredential.user.uid), { fullname: fullname, email: email });
-    }
-    closeAuthModal(); 
-  } catch (error) {
-    let message = "Произошла ошибка.";
-    if (error.message === "Введите ФИО") message = "Пожалуйста, введите ФИО.";
-    else if (error.code === 'auth/email-already-in-use') message = "Этот email уже зарегистрирован.";
-    else if (error.code === 'auth/invalid-email') message = "Неверный формат email.";
-    else if (error.code === 'auth/weak-password') message = "Пароль слишком короткий (мин. 6 символов).";
-    else if (error.code === 'auth/invalid-credential') message = "Неверный email или пароль.";
-    authError.textContent = message;
-  } finally {
-    submitBtn.disabled = false;
+// 1. Проверка авторизации
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "index.html";
+    return;
   }
+  try {
+    const adminDoc = await getDoc(doc(db, "admins", user.uid));
+    if (!adminDoc.exists()) {
+      alert("У вас нет прав администратора!");
+      window.location.href = "index.html";
+      return;
+    }
+  } catch (error) {
+    console.error("Ошибка проверки прав:", error);
+    return;
+  }
+  loadEvents();
+  loadGuests();
 });
 
-logoutBtn.addEventListener("click", () => signOut(auth));
-
-// --- ЗАГРУЗКА ЭКСКУРСИЙ ---
+// 2. Загрузка экскурсий
 async function loadEvents() {
-  eventsList.innerHTML = "<p style='text-align: center; color: #94a3b8;'>Загрузка...</p>";
+  eventsContainer.innerHTML = "Загрузка...";
   try {
     const querySnapshot = await getDocs(collection(db, "events"));
+    eventsContainer.innerHTML = ""; 
     if (querySnapshot.empty) {
-      eventsList.innerHTML = "<p style='text-align: center; color: #94a3b8;'>Пока нет доступных экскурсий.</p>";
+      eventsContainer.innerHTML = "<p style='color: #94a3b8;'>Пока нет созданных экскурсий.</p>";
       return;
     }
-    eventsList.innerHTML = "";
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
       const date = new Date(data.date).toLocaleString("ru-RU");
       const el = document.createElement("div");
-      el.className = "card event-card";
+      el.className = "event-item";
       el.innerHTML = `
-        <h3>${data.title}</h3>
-        <p>📅 ${date} | 👥 Лимит: ${data.limit} чел.</p>
-        <p style="margin-top: 5px; font-size: 12px; color: #cbd5e1;">${data.description || ''}</p>
-        <button style="width: auto; padding: 8px 15px; font-size: 14px; margin-top: 10px; float: right;" onclick="openBookingModal('${docSnap.id}', ${data.limit}, '${data.title}')">Записаться</button>
-        <div style="clear: both;"></div>
+        <div class="event-info">
+          <h3>${data.title}</h3>
+          <p>📅 ${date} | 👥 Лимит: ${data.limit} чел.</p>
+        </div>
       `;
-      eventsList.appendChild(el);
+      eventsContainer.appendChild(el);
     });
   } catch (error) {
-    console.error("Ошибка загрузки экскурсий:", error);
+    console.error("Ошибка загрузки:", error);
   }
 }
 
-// --- ЗАГРУЗКА НОВОСТЕЙ ---
-async function loadNews() {
-  const newsList = document.getElementById("news-list");
-  if (!newsList) return;
+// 3. Загрузка гостей (с кнопками подтверждения)
+async function loadGuests() {
+  const container = document.getElementById("guests-container");
+  container.innerHTML = "Загрузка...";
   try {
-    const querySnapshot = await getDocs(collection(db, "news"));
-    newsList.innerHTML = "";
+    const querySnapshot = await getDocs(collection(db, "registrations"));
     if (querySnapshot.empty) {
-      newsList.innerHTML = "<p style='text-align: center; color: #94a3b8;'>Пока нет новостей.</p>";
+      container.innerHTML = "<p style='color: #94a3b8;'>Пока нет ни одной заявки.</p>";
       return;
     }
-    const newsArray = [];
-    querySnapshot.forEach(doc => newsArray.push(doc.data()));
-    newsArray.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    newsArray.forEach(data => {
-      const el = document.createElement("div");
-      el.className = "card news-card";
-      let imgHtml = data.imageUrl ? `<img src="${data.imageUrl}" alt="Фото">` : "";
-      el.innerHTML = `${imgHtml}<h3>${data.title}</h3><p>${data.content}</p>`;
-      newsList.appendChild(el);
-    });
-  } catch (error) {
-    console.error("Ошибка загрузки новостей:", error);
-  }
-}
-
-// --- ЗАГРУЗКА МОИХ ЗАЯВОК ---
-async function loadMyRegistrations() {
-  const container = document.getElementById("my-registrations-list");
-  const user = auth.currentUser;
-  if (!user || !container) return;
-
-  try {
-    const q = query(collection(db, "registrations"), where("userId", "==", user.uid));
-    const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) {
-      container.innerHTML = "<p style='color: #94a3b8; text-align: center;'>Вы пока никуда не записаны.</p>";
-      return;
-    }
-    container.innerHTML = "";
+    let html = `
+      <table style="width: 100%; border-collapse: collapse; text-align: left; color: #cbd5e1; font-size: 14px;">
+        <tr style="border-bottom: 2px solid #475569;">
+          <th style="padding: 10px;">№</th>
+          <th style="padding: 10px;">Экскурсия</th>
+          <th style="padding: 10px;">ФИО (все)</th>
+          <th style="padding: 10px;">Сумма</th>
+          <th style="padding: 10px;">Статус</th>
+          <th style="padding: 10px;">Действие</th>
+        </tr>
+    `;
 
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      let statusText = data.status === "pending" ? "⏳ Ожидает оплаты" : "✅ Оплачено (место забронировано)";
-      let statusColor = data.status === "pending" ? "#fbbf24" : "#4ade80";
-      
-      let guestsHtml = "";
+      let names = "—";
       if (data.guests && Array.isArray(data.guests)) {
-        guestsHtml = data.guests.map(g => `• ${g.name} ${g.isChild ? '(реб.)' : ''}`).join("<br>");
+        names = data.guests.map(g => `${g.name} ${g.isChild ? '(реб.)' : ''}`).join("<br>");
+      }
+      
+      const status = data.status === "pending" ? "⏳ Ожидает" : "✅ Оплачено";
+      const statusColor = data.status === "pending" ? "#fbbf24" : "#4ade80";
+      
+      let actionBtn = "";
+      if (data.status === "pending") {
+        actionBtn = `<button onclick="confirmPayment('${docSnap.id}')" style="background: #10b981; padding: 5px 10px; width: auto; font-size: 12px;">Подтвердить</button>`;
+      } else {
+        actionBtn = `<span style="color: #94a3b8; font-size: 12px;">Готово</span>`;
       }
 
-      const el = document.createElement("div");
-      el.className = "card";
-      el.style.borderLeft = `4px solid ${statusColor}`;
-      el.innerHTML = `
-        <h3 style="margin: 0 0 10px 0; color: #a78bfa; font-size: 18px;">${data.eventTitle}</h3>
-        <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Заявка № <b>${data.listNumber}</b></p>
-        <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Сумма: <b>${data.totalPrice} руб.</b></p>
-        <p style="margin: 0 0 10px 0; font-size: 14px; color: ${statusColor}; font-weight: bold;">Статус: ${statusText}</p>
-        <div style="font-size: 13px; color: #94a3b8; background: #0f172a; padding: 10px; border-radius: 6px;"><b>Гости:</b><br>${guestsHtml || '—'}</div>
+      html += `
+        <tr style="border-bottom: 1px solid #334155;">
+          <td style="padding: 10px; color: #a78bfa; font-weight: bold;">${data.listNumber || '—'}</td>
+          <td style="padding: 10px;">${data.eventTitle || data.eventId}</td>
+          <td style="padding: 10px;">${names}</td>
+          <td style="padding: 10px;">${data.totalPrice || 0} руб.</td>
+          <td style="padding: 10px; color: ${statusColor}; font-weight: bold;">${status}</td>
+          <td style="padding: 10px;">${actionBtn}</td>
+        </tr>
       `;
-      container.appendChild(el);
     });
+
+    html += `</table>`;
+    container.innerHTML = html;
   } catch (error) {
-    console.error("Ошибка загрузки моих заявок:", error);
+    console.error("Ошибка загрузки гостей:", error);
+    container.innerHTML = "<p style='color: #f87171;'>Ошибка загрузки.</p>";
   }
 }
 
-// --- АВТОРИЗАЦИЯ ---
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    loginHeaderBtn.classList.add("hidden");
-    userHeaderBlock.classList.remove("hidden");
-    userEmailDisplay.textContent = user.email;
-    userBlock.classList.remove("hidden");
-
-    try {
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const fullname = userDoc.data().fullname || user.email;
-        const firstName = fullname.trim().split(" ")[1] || fullname; 
-        document.getElementById("welcome-text").textContent = `Добро пожаловать, ${firstName}!`;
-      }
-    } catch (e) { console.log(e); }
-
-    loadEvents();
-    loadMyRegistrations();
-
-    try {
-      const adminDoc = await getDoc(doc(db, "admins", user.uid));
-      const adminBtn = document.getElementById("admin-panel-btn");
-      if (adminDoc.exists()) {
-        adminBtn.classList.remove("hidden");
-        adminBtn.onclick = () => { window.location.href = "admin.html"; };
-      } else {
-        adminBtn.classList.add("hidden");
-      }
-    } catch (error) { console.error(error); }
-  } else {
-    loginHeaderBtn.classList.remove("hidden");
-    userHeaderBlock.classList.add("hidden");
-    userBlock.classList.add("hidden");
-    authForm.reset();
-  }
-});
-
-// --- МОДАЛЬНОЕ ОКНО ЗАПИСИ ---
-let currentEventId = null;
-let childCount = 0;
-
-window.openBookingModal = function(eventId, limit, title) {
-  currentEventId = eventId;
-  childCount = 0;
-  
-  document.getElementById("modal-title").textContent = `Запись: ${title}`;
-  document.getElementById("adults-container").innerHTML = `<div class="form-group"><input type="text" class="adult-name" placeholder="ФИО взрослого" required></div>`;
-  document.getElementById("children-container").innerHTML = "";
-  document.getElementById("booking-form").reset();
-  document.getElementById("booking-modal").classList.remove("hidden");
-  updateTotal();
-
-  const user = auth.currentUser;
-  if (user) {
-    getDoc(doc(db, "users", user.uid)).then(docSnap => {
-      if (docSnap.exists()) {
-        document.querySelector(".adult-name").value = docSnap.data().fullname || "";
-        updateTotal();
-      }
-    });
+// 4. Подтверждение оплаты
+window.confirmPayment = async function(regId) {
+  if (!confirm("Вы уверены, что оплата поступила? Места будут забронированы.")) return;
+  try {
+    await updateDoc(doc(db, "registrations", regId), { status: "paid" });
+    loadGuests(); 
+  } catch (error) {
+    console.error("Ошибка обновления:", error);
+    alert("Не удалось обновить статус.");
   }
 };
 
-window.closeModal = function() { document.getElementById("booking-modal").classList.add("hidden"); };
-
-// Динамическое добавление взрослых
-document.getElementById("adults-container").addEventListener("input", (e) => {
-  if (e.target.classList.contains("adult-name") && e.target.value.trim() !== "") {
-    const inputs = document.querySelectorAll(".adult-name");
-    if (inputs[inputs.length - 1] === e.target) {
-      const div = document.createElement("div");
-      div.className = "form-group";
-      div.innerHTML = `<input type="text" class="adult-name" placeholder="ФИО взрослого">`;
-      document.getElementById("adults-container").appendChild(div);
-      updateTotal();
+// 5. Генерация Word (в формате .docx)
+window.downloadWord = async function() {
+  try {
+    const q = query(collection(db, "registrations"), where("status", "==", "paid"));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      alert("Нет оплаченных заявок для формирования списка.");
+      return;
     }
+
+    const eventsSnapshot = await getDocs(collection(db, "events"));
+    const eventsMap = {};
+    eventsSnapshot.forEach(doc => {
+      const data = doc.data();
+      eventsMap[doc.id] = { title: data.title, date: data.date };
+    });
+
+    const guestsByEvent = {};
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const eventId = data.eventId;
+      const eventInfo = eventsMap[eventId] || { title: "Неизвестная экскурсия", date: "" };
+
+      if (!guestsByEvent[eventId]) {
+        guestsByEvent[eventId] = { title: eventInfo.title, date: eventInfo.date, guests: [] };
+      }
+
+      if (data.guests && Array.isArray(data.guests)) {
+        data.guests.forEach(g => {
+          guestsByEvent[eventId].guests.push({ name: g.name.toUpperCase(), isChild: g.isChild });
+        });
+      }
+    });
+
+    let htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset="utf-8"><title>Списки гостей</title>
+        <style>
+          body { font-family: 'Times New Roman', serif; }
+          h2 { margin-bottom: 5px; }
+          .event-header { margin-top: 30px; margin-bottom: 10px; background: #f0f0f0; padding: 10px; border-left: 4px solid #4CAF50; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+          th { background-color: #e0e0e0; }
+        </style>
+      </head><body><h1 style="text-align: center;">Списки гостей обсерватории</h1>`;
+
+    for (const eventId in guestsByEvent) {
+      const eventData = guestsByEvent[eventId];
+      let dateStr = "Дата не указана", timeStr = "";
+      if (eventData.date) {
+        const d = new Date(eventData.date);
+        dateStr = d.toLocaleDateString("ru-RU");
+        timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
+      }
+      eventData.guests.sort((a, b) => a.name.localeCompare(b.name));
+      htmlContent += `
+        <div class="event-header"><h2>Экскурсия: ${eventData.title}</h2><p style="margin: 0;">Дата: ${dateStr} | Время: ${timeStr}</p></div>
+        <table><tr><th style="width: 50px;">№</th><th>ФИО</th><th style="width: 150px;">Категория</th></tr>`;
+      eventData.guests.forEach((guest, index) => {
+        htmlContent += `<tr><td>${index + 1}</td><td>${guest.name}</td><td>${guest.isChild ? "Ребенок (до 14 лет)" : "Взрослый"}</td></tr>`;
+      });
+      htmlContent += `</table>`;
+    }
+    htmlContent += `</body></html>`;
+
+    // Скачивание в формате .docx
+    const blob = new Blob([htmlContent], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Списки_гостей_по_экскурсиям.docx";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Ошибка генерации Word:", error);
+    alert("Ошибка при создании файла.");
   }
-});
+};
 
-// Добавление детей
-document.getElementById("add-child-btn").addEventListener("click", () => {
-  childCount++;
-  const div = document.createElement("div");
-  div.className = "form-group";
-  div.innerHTML = `<input type="text" class="child-name" placeholder="ФИО ребенка" required>`;
-  document.getElementById("children-container").appendChild(div);
-  updateTotal();
-});
-
-function updateTotal() {
-  const adults = Array.from(document.querySelectorAll(".adult-name")).filter(i => i.value.trim() !== "").length;
-  const children = Array.from(document.querySelectorAll(".child-name")).filter(i => i.value.trim() !== "").length;
-  const total = (adults * 12) + (children * 6);
-  document.getElementById("total-price").textContent = total;
-  document.getElementById("confirm-price-text").textContent = total;
-}
-
-document.getElementById("booking-form").addEventListener("input", updateTotal);
-
-// Отправка формы записи
-document.getElementById("booking-form").addEventListener("submit", async (e) => {
+// 6. Создание экскурсии
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const user = auth.currentUser;
-  const submitBtn = e.target.querySelector('button[type="submit"]');
-  submitBtn.disabled = true;
-  submitBtn.textContent = "Создание...";
+  formMessage.textContent = "Создание...";
+  formMessage.className = "";
+  const title = document.getElementById("event-title").value;
+  const date = document.getElementById("event-date").value;
+  const limit = parseInt(document.getElementById("event-limit").value);
+  const desc = document.getElementById("event-desc").value;
 
   try {
-    const guests = [];
-    document.querySelectorAll(".adult-name").forEach(input => {
-      if (input.value.trim()) guests.push({ name: input.value, isChild: false });
-    });
-    document.querySelectorAll(".child-name").forEach(input => {
-      if (input.value.trim()) guests.push({ name: input.value, isChild: true });
-    });
-
-    const totalPrice = parseInt(document.getElementById("total-price").textContent);
-    const countSnapshot = await getCountFromServer(collection(db, "registrations"));
-    const listNumber = countSnapshot.data().count + 1;
-
-    await addDoc(collection(db, "registrations"), {
-      eventId: currentEventId,
-      eventTitle: document.getElementById("modal-title").textContent.replace("Запись: ", ""),
-      userId: user.uid,
-      userEmail: user.email,
-      guests: guests,
-      totalPrice: totalPrice,
-      listNumber: listNumber,
-      status: "pending",
-      createdAt: new Date().toISOString()
-    });
-
-    document.getElementById("pay-list-number").textContent = listNumber;
-    document.getElementById("pay-total-price").textContent = totalPrice;
-    
-    closeModal();
-    document.getElementById("payment-modal").classList.remove("hidden");
+    await addDoc(collection(db, "events"), { title, date, limit, description: desc, createdAt: new Date().toISOString() });
+    formMessage.textContent = "Экскурсия успешно создана!";
+    formMessage.className = "success";
+    form.reset();
     loadEvents(); 
-    loadMyRegistrations();
   } catch (error) {
-    console.error("Ошибка:", error);
-    alert("Ошибка при создании заявки.");
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Поехали!";
+    formMessage.textContent = "Ошибка при создании.";
+    formMessage.className = "error";
   }
 });
 
-window.closePaymentModal = function() { document.getElementById("payment-modal").classList.add("hidden"); };
+// 7. Создание новости (через ImgBB)
+const newsForm = document.getElementById("create-news-form");
+const newsMessage = document.getElementById("news-message");
 
-loadNews();
+if (newsForm) {
+  newsForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    newsMessage.textContent = "Публикация...";
+    newsMessage.className = "";
+    const title = document.getElementById("news-title").value;
+    const content = document.getElementById("news-content").value;
+    const fileInput = document.getElementById("news-photo");
+    const file = fileInput.files[0];
+
+    try {
+      let imageUrl = "";
+      if (file) {
+        const IMGBB_API_KEY = "ВАШ_КЛЮЧ_IMGBB"; // Вставьте ключ
+        const formData = new FormData();
+        formData.append("image", file);
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData });
+        const result = await response.json();
+        if (result.success) { imageUrl = result.data.url; }
+        else { throw new Error("Ошибка ImgBB: " + result.error.message); }
+      }
+      await addDoc(collection(db, "news"), { title: title, content: content, imageUrl: imageUrl, createdAt: new Date().toISOString() });
+      newsMessage.textContent = "Новость успешно опубликована!";
+      newsMessage.className = "success";
+      newsForm.reset();
+    } catch (error) {
+      console.error("Ошибка публикации:", error);
+      newsMessage.textContent = "Ошибка: " + error.message;
+      newsMessage.className = "error";
+    }
+  });
+}
