@@ -130,7 +130,7 @@ window.confirmPayment = async function(regId) {
 
 window.downloadWord = async function() {
   try {
-    // 1. Получаем оплаченные заявки
+    // 1. Сбор данных (без изменений)
     const q = query(collection(db, "registrations"), where("status", "==", "paid"));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
@@ -138,7 +138,6 @@ window.downloadWord = async function() {
       return;
     }
 
-    // 2. Получаем экскурсии (название и дату)
     const eventsSnapshot = await getDocs(collection(db, "events"));
     const eventsMap = {};
     eventsSnapshot.forEach(doc => {
@@ -146,13 +145,11 @@ window.downloadWord = async function() {
       eventsMap[doc.id] = { title: data.title, date: data.date };
     });
 
-    // 3. Группируем гостей по экскурсиям
     const guestsByEvent = {};
     snapshot.forEach(doc => {
       const data = doc.data();
       const eventId = data.eventId;
       const eventInfo = eventsMap[eventId] || { title: "Неизвестная экскурсия", date: "" };
-      
       if (!guestsByEvent[eventId]) {
         guestsByEvent[eventId] = { title: eventInfo.title, date: eventInfo.date, guests: [] };
       }
@@ -163,23 +160,12 @@ window.downloadWord = async function() {
       }
     });
 
-    // 4. Формируем HTML
+    // 2. Формирование HTML (без изменений, но лучше использовать <p> для абзацев)
     let htmlContent = `
-      <!DOCTYPE html>
       <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: 'Times New Roman', serif; }
-          h1 { text-align: center; }
-          .event-header { margin-top: 30px; background: #f0f0f0; padding: 10px; border-left: 4px solid #4CAF50; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-          th { background-color: #e0e0e0; }
-        </style>
-      </head>
+      <head><meta charset="utf-8"></head>
       <body>
-        <h1>Списки гостей обсерватории</h1>
+        <h1 style="text-align: center;">Списки гостей обсерватории</h1>
     `;
 
     for (const eventId in guestsByEvent) {
@@ -190,20 +176,14 @@ window.downloadWord = async function() {
         dateStr = d.toLocaleDateString("ru-RU");
         timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
       }
-      
       eventData.guests.sort((a, b) => a.name.localeCompare(b.name));
       
       htmlContent += `
-        <div class="event-header">
-          <h2>Экскурсия: ${eventData.title}</h2>
-          <p style="margin: 0;">Дата: ${dateStr} | Время: ${timeStr}</p>
-        </div>
-        <table>
-          <tr>
-            <th style="width: 50px;">№</th>
-            <th>ФИО</th>
-            <th style="width: 150px;">Категория</th>
-          </tr>`;
+        <h2>Экскурсия: ${eventData.title}</h2>
+        <p>Дата: ${dateStr} | Время: ${timeStr}</p>
+        <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+          <tr><th>№</th><th>ФИО</th><th>Категория</th></tr>
+      `;
       
       eventData.guests.forEach((guest, index) => {
         htmlContent += `
@@ -213,65 +193,51 @@ window.downloadWord = async function() {
             <td>${guest.isChild ? "Ребенок (до 14 лет)" : "Взрослый"}</td>
           </tr>`;
       });
-      htmlContent += `</table>`;
+      htmlContent += `</table><br>`;
     }
-
     htmlContent += `</body></html>`;
 
-    // 5. Конвертируем HTML в Blob
-    const converted = window.htmlDocx.asBlob(htmlContent);
+    // 3. Генерация DOCX через DocShift
+    const docxBlob = await window.docshift.toDocx(htmlContent);
     const fileName = "Списки_гостей_по_экскурсиям.docx";
 
-    // 6. Пытаемся использовать Web Share API (для iPhone)
-    const file = new File([converted], fileName, { 
+    // 4. Скачивание / Отправка (универсальная логика)
+    const file = new File([docxBlob], fileName, { 
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
     });
 
+    // Попытка использовать Web Share (для телефонов)
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
           files: [file],
           title: 'Списки гостей',
-          text: 'Файл со списками гостей обсерватории'
         });
-        return; // Успешно поделились, выходим
+        return;
       } catch (error) {
         if (error.name === 'AbortError') return;
-        console.error("Ошибка Web Share:", error);
-        // Если не сработало, идем дальше
+        console.error("Web Share error:", error);
       }
     }
 
-    // 7. ОБХОДНОЙ ПУТЬ ДЛЯ iOS SAFARI
-    // Читаем Blob как Data URL
-    const reader = new FileReader();
-    reader.onload = function() {
-      const dataUrl = reader.result;
-      // Открываем новую вкладку
-      const newWindow = window.open();
-      if (newWindow) {
-        // Вставляем HTML с кнопкой для скачивания
-        newWindow.document.write(`
-          <html>
-            <head><title>Скачать файл</title></head>
-            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif;">
-              <a href="${dataUrl}" download="${fileName}" style="padding: 20px; background: #10b981; color: white; text-decoration: none; border-radius: 8px; font-size: 18px;">
-                Нажмите, чтобы сохранить файл
-              </a>
-            </body>
-          </html>
-        `);
-      } else {
-        alert("Пожалуйста, разрешите всплывающие окна для этого сайта, чтобы скачать файл.");
-      }
-    };
-    reader.readAsDataURL(converted);
+    // Классическое скачивание (для ПК)
+    const url = URL.createObjectURL(docxBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 60000);
 
   } catch (error) {
     console.error("Ошибка генерации Word:", error);
-    alert("Ошибка при создании файла.");
+    alert("Ошибка при создании файла: " + error.message);
   }
-}; 
+};
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
