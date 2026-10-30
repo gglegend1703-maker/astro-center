@@ -143,12 +143,11 @@ async function loadMyRegistrations() {
 
       const el = document.createElement("div");
       el.className = "card";
-      el.style.borderLeft = `4px solid #4ade80`;
+      el.style.borderLeft = `4px solid #4ade80`; // Зеленая рамка
       el.innerHTML = `
         <h3 style="margin: 0 0 10px 0; color: #a78bfa; font-size: 18px;">${data.eventTitle}</h3>
         <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Заявка № <b>${data.listNumber}</b></p>
-        <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Сумма: <b>${data.totalPrice} руб.</b></p>
-        <p style="margin: 0 0 10px 0; font-size: 14px; color: #4ade80; font-weight: bold;">Статус: ✅ Место забронировано</p>
+        <p style="margin: 0 0 10px 0; font-size: 14px; color: #cbd5e1;">Сумма: <b>${data.totalPrice} руб.</b></p>
         <div style="font-size: 13px; color: #94a3b8; background: #0f172a; padding: 10px; border-radius: 6px;"><b>Гости:</b><br>${guestsHtml || '—'}</div>
       `;
       container.appendChild(el);
