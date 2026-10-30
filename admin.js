@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 
 const app = initializeApp(firebaseConfig);
@@ -76,7 +76,6 @@ async function loadGuests() {
           <th style="padding: 10px;">ФИО (все)</th>
           <th style="padding: 10px;">Сумма</th>
           <th style="padding: 10px;">Статус</th>
-          <th style="padding: 10px;">Действие</th>
         </tr>
     `;
 
@@ -87,24 +86,13 @@ async function loadGuests() {
         names = data.guests.map(g => `${g.name} ${g.isChild ? '(реб.)' : ''}`).join("<br>");
       }
       
-      const status = data.status === "pending" ? "⏳ Ожидает" : "✅ Оплачено";
-      const statusColor = data.status === "pending" ? "#fbbf24" : "#4ade80";
-      
-      let actionBtn = "";
-      if (data.status === "pending") {
-        actionBtn = `<button onclick="confirmPayment('${docSnap.id}')" style="background: #10b981; padding: 5px 10px; width: auto; font-size: 12px;">Подтвердить</button>`;
-      } else {
-        actionBtn = `<span style="color: #94a3b8; font-size: 12px;">Готово</span>`;
-      }
-
       html += `
         <tr style="border-bottom: 1px solid #334155;">
           <td style="padding: 10px; color: #a78bfa; font-weight: bold;">${data.listNumber || '—'}</td>
           <td style="padding: 10px;">${data.eventTitle || data.eventId}</td>
           <td style="padding: 10px;">${names}</td>
           <td style="padding: 10px;">${data.totalPrice || 0} руб.</td>
-          <td style="padding: 10px; color: ${statusColor}; font-weight: bold;">${status}</td>
-          <td style="padding: 10px;">${actionBtn}</td>
+          <td style="padding: 10px; color: #4ade80; font-weight: bold;">✅ Забронировано</td>
         </tr>
       `;
     });
@@ -117,24 +105,12 @@ async function loadGuests() {
   }
 }
 
-window.confirmPayment = async function(regId) {
-  if (!confirm("Вы уверены, что оплата поступила? Места будут забронированы.")) return;
-  try {
-    await updateDoc(doc(db, "registrations", regId), { status: "paid" });
-    loadGuests(); 
-  } catch (error) {
-    console.error("Ошибка обновления:", error);
-    alert("Не удалось обновить статус.");
-  }
-};
-
 window.downloadWord = async function() {
   try {
-    // 1. Сбор данных (без изменений)
-    const q = query(collection(db, "registrations"), where("status", "==", "paid"));
+    const q = query(collection(db, "registrations")); // Берем ВСЕ заявки
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
-      alert("Нет оплаченных заявок для формирования списка.");
+      alert("Нет заявок для формирования списка.");
       return;
     }
 
@@ -160,12 +136,22 @@ window.downloadWord = async function() {
       }
     });
 
-    // 2. Формирование HTML (без изменений, но лучше использовать <p> для абзацев)
     let htmlContent = `
+      <!DOCTYPE html>
       <html>
-      <head><meta charset="utf-8"></head>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Times New Roman', serif; }
+          h1 { text-align: center; }
+          .event-header { margin-top: 30px; background: #f0f0f0; padding: 10px; border-left: 4px solid #4CAF50; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+          th { background-color: #e0e0e0; }
+        </style>
+      </head>
       <body>
-        <h1 style="text-align: center;">Списки гостей обсерватории</h1>
+        <h1>Списки гостей обсерватории</h1>
     `;
 
     for (const eventId in guestsByEvent) {
@@ -179,11 +165,16 @@ window.downloadWord = async function() {
       eventData.guests.sort((a, b) => a.name.localeCompare(b.name));
       
       htmlContent += `
-        <h2>Экскурсия: ${eventData.title}</h2>
-        <p>Дата: ${dateStr} | Время: ${timeStr}</p>
-        <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse;">
-          <tr><th>№</th><th>ФИО</th><th>Категория</th></tr>
-      `;
+        <div class="event-header">
+          <h2>Экскурсия: ${eventData.title}</h2>
+          <p style="margin: 0;">Дата: ${dateStr} | Время: ${timeStr}</p>
+        </div>
+        <table>
+          <tr>
+            <th style="width: 50px;">№</th>
+            <th>ФИО</th>
+            <th style="width: 150px;">Категория</th>
+          </tr>`;
       
       eventData.guests.forEach((guest, index) => {
         htmlContent += `
@@ -193,35 +184,29 @@ window.downloadWord = async function() {
             <td>${guest.isChild ? "Ребенок (до 14 лет)" : "Взрослый"}</td>
           </tr>`;
       });
-      htmlContent += `</table><br>`;
+      htmlContent += `</table>`;
     }
+
     htmlContent += `</body></html>`;
 
-    // 3. Генерация DOCX через DocShift
-    const docxBlob = await window.docshift.toDocx(htmlContent);
+    const converted = window.htmlDocx.asBlob(htmlContent);
     const fileName = "Списки_гостей_по_экскурсиям.docx";
 
-    // 4. Скачивание / Отправка (универсальная логика)
-    const file = new File([docxBlob], fileName, { 
+    const file = new File([converted], fileName, { 
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
     });
 
-    // Попытка использовать Web Share (для телефонов)
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
-        await navigator.share({
-          files: [file],
-          title: 'Списки гостей',
-        });
-        return;
+        await navigator.share({ files: [file], title: 'Списки гостей' });
+        return; 
       } catch (error) {
         if (error.name === 'AbortError') return;
-        console.error("Web Share error:", error);
+        console.error("Ошибка Web Share:", error);
       }
     }
 
-    // Классическое скачивание (для ПК)
-    const url = URL.createObjectURL(docxBlob);
+    const url = URL.createObjectURL(converted);
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
@@ -231,11 +216,11 @@ window.downloadWord = async function() {
     setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    }, 60000);
+    }, 60000); 
 
   } catch (error) {
     console.error("Ошибка генерации Word:", error);
-    alert("Ошибка при создании файла: " + error.message);
+    alert("Ошибка при создании файла.");
   }
 };
 
@@ -276,7 +261,7 @@ if (newsForm) {
     try {
       let imageUrl = "";
       if (file) {
-        const IMGBB_API_KEY = "d24bd2790ad860c507ebda4faef55517"; 
+        const IMGBB_API_KEY = "ВАШ_КЛЮЧ_IMGBB"; // Вставьте ваш ключ
         const formData = new FormData();
         formData.append("image", file);
         const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData });
