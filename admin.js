@@ -75,7 +75,6 @@ async function loadGuests() {
           <th style="padding: 10px;">Экскурсия</th>
           <th style="padding: 10px;">ФИО (все)</th>
           <th style="padding: 10px;">Сумма</th>
-          <th style="padding: 10px;">Статус</th>
         </tr>
     `;
 
@@ -92,7 +91,6 @@ async function loadGuests() {
           <td style="padding: 10px;">${data.eventTitle || data.eventId}</td>
           <td style="padding: 10px;">${names}</td>
           <td style="padding: 10px;">${data.totalPrice || 0} руб.</td>
-          <td style="padding: 10px; color: #4ade80; font-weight: bold;">✅ Забронировано</td>
         </tr>
       `;
     });
@@ -104,7 +102,6 @@ async function loadGuests() {
     container.innerHTML = "<p style='color: #f87171;'>Ошибка загрузки.</p>";
   }
 }
-
 window.downloadWord = async function() {
   try {
     const q = query(collection(db, "registrations")); // Берем ВСЕ заявки
