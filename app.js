@@ -28,7 +28,11 @@ window.switchTab = function(mode) {
   isLoginMode = (mode === 'login');
   document.getElementById("tab-login").classList.toggle("active", isLoginMode);
   document.getElementById("tab-register").classList.toggle("active", !isLoginMode);
+  
+  // Скрываем/показываем ФИО и Телефон
   document.getElementById("fullname-group").classList.toggle("hidden", isLoginMode);
+  document.getElementById("phone-group").classList.toggle("hidden", isLoginMode);
+  
   submitBtn.textContent = isLoginMode ? "Войти" : "Зарегистрироваться";
   authError.textContent = "";
   authForm.reset();
@@ -45,10 +49,19 @@ authForm.addEventListener("submit", async (e) => {
   try {
     if (isLoginMode) {
       await signInWithEmailAndPassword(auth, email, password);
-    } else {
+       } else {
+      const fullname = document.getElementById("fullname").value;
+      const phone = document.getElementById("phone").value;
+      
       if (!fullname.trim()) throw { message: "Введите ФИО" };
+      if (!phone.trim()) throw { message: "Введите номер телефона" };
+      
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await setDoc(doc(db, "users", userCredential.user.uid), { fullname: fullname, email: email });
+      await setDoc(doc(db, "users", userCredential.user.uid), { 
+        fullname: fullname, 
+        phone: phone, 
+        email: email 
+      });
     }
     closeAuthModal(); 
   } catch (error) {
@@ -62,6 +75,8 @@ authForm.addEventListener("submit", async (e) => {
   } finally {
     submitBtn.disabled = false;
   }
+      if (error.message === "Введите ФИО") message = "Пожалуйста, введите ФИО.";
+    else if (error.message === "Введите номер телефона") message = "Пожалуйста, введите номер телефона.";
 });
 
 logoutBtn.addEventListener("click", () => signOut(auth));
