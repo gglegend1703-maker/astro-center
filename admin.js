@@ -159,7 +159,6 @@ window.downloadWord = async function() {
       }
     });
 
-    // Формируем ПОЛНЫЙ HTML-документ
     let htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -213,62 +212,9 @@ window.downloadWord = async function() {
 
     htmlContent += `</body></html>`;
 
-    // Используем глобальную переменную htmlDocx (из подключенного скрипта)
     const converted = window.htmlDocx.asBlob(htmlContent);
     
     const url = URL.createObjectURL(converted);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "Списки_гостей_по_экскурсиям.docx";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-  } catch (error) {
-    console.error("Ошибка генерации Word:", error);
-    alert("Ошибка при создании файла.");
-  }
-};
-    let htmlContent = `<h1 style="text-align: center;">Списки гостей обсерватории</h1>`;
-
-    for (const eventId in guestsByEvent) {
-      const eventData = guestsByEvent[eventId];
-      let dateStr = "Дата не указана", timeStr = "";
-      if (eventData.date) {
-        const d = new Date(eventData.date);
-        dateStr = d.toLocaleDateString("ru-RU");
-        timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
-      }
-      eventData.guests.sort((a, b) => a.name.localeCompare(b.name));
-      
-      htmlContent += `
-        <div style="margin-top: 30px; background: #f0f0f0; padding: 10px; border-left: 4px solid #4CAF50;">
-          <h2>Экскурсия: ${eventData.title}</h2>
-          <p style="margin: 0;">Дата: ${dateStr} | Время: ${timeStr}</p>
-        </div>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-          <tr style="background-color: #e0e0e0;">
-            <th style="border: 1px solid #000; padding: 8px; width: 50px;">№</th>
-            <th style="border: 1px solid #000; padding: 8px;">ФИО</th>
-            <th style="border: 1px solid #000; padding: 8px; width: 150px;">Категория</th>
-          </tr>`;
-      
-      eventData.guests.forEach((guest, index) => {
-        htmlContent += `
-          <tr>
-            <td style="border: 1px solid #000; padding: 8px;">${index + 1}</td>
-            <td style="border: 1px solid #000; padding: 8px;">${guest.name}</td>
-            <td style="border: 1px solid #000; padding: 8px;">${guest.isChild ? "Ребенок (до 14 лет)" : "Взрослый"}</td>
-          </tr>`;
-      });
-      htmlContent += `</table>`;
-    }
-
-    // Конвертация в настоящий .docx
-    const blob = await HTMLtoDOCX(htmlContent, undefined, { title: "Списки гостей" });
-    
-    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "Списки_гостей_по_экскурсиям.docx";
@@ -338,4 +284,4 @@ if (newsForm) {
       newsMessage.className = "error";
     }
   });
-
+}
