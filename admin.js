@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
+// Подключаем библиотеку для DOCX
 import HTMLtoDOCX from "https://cdn.jsdelivr.net/npm/@turbodocx/html-to-docx@1.0.0/+esm";
 
 const app = initializeApp(firebaseConfig);
@@ -160,7 +161,6 @@ window.downloadWord = async function() {
       }
     });
 
-    // Формируем HTML для конвертации
     let htmlContent = `<h1 style="text-align: center;">Списки гостей обсерватории</h1>`;
 
     for (const eventId in guestsByEvent) {
@@ -196,10 +196,9 @@ window.downloadWord = async function() {
       htmlContent += `</table>`;
     }
 
-    // Конвертируем HTML в настоящий DOCX
+    // Конвертация в настоящий .docx
     const blob = await HTMLtoDOCX(htmlContent, undefined, { title: "Списки гостей" });
     
-    // Скачиваем файл
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -209,53 +208,6 @@ window.downloadWord = async function() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-  } catch (error) {
-    console.error("Ошибка генерации Word:", error);
-    alert("Ошибка при создании файла.");
-  }
-};
-
-    let htmlContent = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head><meta charset="utf-8"><title>Списки гостей</title>
-        <style>
-          body { font-family: 'Times New Roman', serif; }
-          h2 { margin-bottom: 5px; }
-          .event-header { margin-top: 30px; margin-bottom: 10px; background: #f0f0f0; padding: 10px; border-left: 4px solid #4CAF50; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-          th { background-color: #e0e0e0; }
-        </style>
-      </head><body><h1 style="text-align: center;">Списки гостей обсерватории</h1>`;
-
-    for (const eventId in guestsByEvent) {
-      const eventData = guestsByEvent[eventId];
-      let dateStr = "Дата не указана", timeStr = "";
-      if (eventData.date) {
-        const d = new Date(eventData.date);
-        dateStr = d.toLocaleDateString("ru-RU");
-        timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
-      }
-      eventData.guests.sort((a, b) => a.name.localeCompare(b.name));
-      htmlContent += `
-        <div class="event-header"><h2>Экскурсия: ${eventData.title}</h2><p style="margin: 0;">Дата: ${dateStr} | Время: ${timeStr}</p></div>
-        <table><tr><th style="width: 50px;">№</th><th>ФИО</th><th style="width: 150px;">Категория</th></tr>`;
-      eventData.guests.forEach((guest, index) => {
-        htmlContent += `<tr><td>${index + 1}</td><td>${guest.name}</td><td>${guest.isChild ? "Ребенок (до 14 лет)" : "Взрослый"}</td></tr>`;
-      });
-      htmlContent += `</table>`;
-    }
-    htmlContent += `</body></html>`;
-
-    const blob = new Blob([htmlContent], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "Списки_гостей_по_экскурсиям.docx";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   } catch (error) {
     console.error("Ошибка генерации Word:", error);
     alert("Ошибка при создании файла.");
@@ -299,7 +251,7 @@ if (newsForm) {
     try {
       let imageUrl = "";
       if (file) {
-        const IMGBB_API_KEY = "ВАШ_КЛЮЧ_IMGBB"; // Вставьте ключ
+        const IMGBB_API_KEY = "ВАШ_КЛЮЧ_IMGBB"; // Вставьте ваш ключ
         const formData = new FormData();
         formData.append("image", file);
         const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData });
