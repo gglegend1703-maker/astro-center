@@ -61,7 +61,17 @@ async function loadEvents() {
 async function loadGuests() {
   const container = document.getElementById("guests-container");
   container.innerHTML = "Загрузка...";
+  
   try {
+    // 1. Загружаем всех пользователей, чтобы знать их телефоны
+    const usersSnapshot = await getDocs(collection(db, "users"));
+    const usersMap = {};
+    usersSnapshot.forEach(doc => {
+      const data = doc.data();
+      usersMap[doc.id] = data.phone || "—";
+    });
+
+    // 2. Загружаем заявки
     const querySnapshot = await getDocs(collection(db, "registrations"));
     if (querySnapshot.empty) {
       container.innerHTML = "<p style='color: #94a3b8;'>Пока нет ни одной заявки.</p>";
@@ -75,6 +85,7 @@ async function loadGuests() {
           <th style="padding: 10px;">Экскурсия</th>
           <th style="padding: 10px;">ФИО (все)</th>
           <th style="padding: 10px;">Сумма</th>
+          <th style="padding: 10px;">Телефон</th>
         </tr>
     `;
 
@@ -85,12 +96,16 @@ async function loadGuests() {
         names = data.guests.map(g => `${g.name} ${g.isChild ? '(реб.)' : ''}`).join("<br>");
       }
       
+      // Берем телефон из профиля пользователя, сделавшего заявку
+      const phone = usersMap[data.userId] || "—";
+      
       html += `
         <tr style="border-bottom: 1px solid #334155;">
           <td style="padding: 10px; color: #a78bfa; font-weight: bold;">${data.listNumber || '—'}</td>
           <td style="padding: 10px;">${data.eventTitle || data.eventId}</td>
           <td style="padding: 10px;">${names}</td>
           <td style="padding: 10px;">${data.totalPrice || 0} руб.</td>
+          <td style="padding: 10px;">${phone}</td>
         </tr>
       `;
     });
@@ -102,7 +117,6 @@ async function loadGuests() {
     container.innerHTML = "<p style='color: #f87171;'>Ошибка загрузки.</p>";
   }
 }
-
 window.downloadWord = async function() {
   try {
     const q = query(collection(db, "registrations"));
