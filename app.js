@@ -7,7 +7,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// --- ЭЛЕМЕНТЫ СТРАНИЦЫ ---
 const userBlock = document.getElementById("user-block");
 const loginHeaderBtn = document.getElementById("login-header-btn");
 const userHeaderBlock = document.getElementById("user-header-block");
@@ -22,11 +21,9 @@ const eventsList = document.getElementById("events-list");
 
 let isLoginMode = true;
 
-// --- УПРАВЛЕНИЕ МОДАЛЬНЫМ ОКНОМ ВХОДА ---
 window.openAuthModal = function() { document.getElementById("auth-modal").classList.remove("hidden"); };
 window.closeAuthModal = function() { document.getElementById("auth-modal").classList.add("hidden"); };
 
-// --- ВКЛАДКИ ВХОД/РЕГИСТРАЦИЯ ---
 window.switchTab = function(mode) {
   isLoginMode = (mode === 'login');
   document.getElementById("tab-login").classList.toggle("active", isLoginMode);
@@ -37,7 +34,6 @@ window.switchTab = function(mode) {
   authForm.reset();
 };
 
-// --- ОБРАБОТКА ВХОДА / РЕГИСТРАЦИИ ---
 authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = emailInput.value;
@@ -70,7 +66,6 @@ authForm.addEventListener("submit", async (e) => {
 
 logoutBtn.addEventListener("click", () => signOut(auth));
 
-// --- ЗАГРУЗКА ЭКСКУРСИЙ ---
 async function loadEvents() {
   eventsList.innerHTML = "<p style='text-align: center; color: #94a3b8;'>Загрузка...</p>";
   try {
@@ -99,7 +94,6 @@ async function loadEvents() {
   }
 }
 
-// --- ЗАГРУЗКА НОВОСТЕЙ ---
 async function loadNews() {
   const newsList = document.getElementById("news-list");
   if (!newsList) return;
@@ -126,7 +120,6 @@ async function loadNews() {
   }
 }
 
-// --- ЗАГРУЗКА МОИХ ЗАЯВОК ---
 async function loadMyRegistrations() {
   const container = document.getElementById("my-registrations-list");
   const user = auth.currentUser;
@@ -143,9 +136,6 @@ async function loadMyRegistrations() {
 
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      let statusText = data.status === "pending" ? "⏳ Ожидает оплаты" : "✅ Оплачено (место забронировано)";
-      let statusColor = data.status === "pending" ? "#fbbf24" : "#4ade80";
-      
       let guestsHtml = "";
       if (data.guests && Array.isArray(data.guests)) {
         guestsHtml = data.guests.map(g => `• ${g.name} ${g.isChild ? '(реб.)' : ''}`).join("<br>");
@@ -153,12 +143,12 @@ async function loadMyRegistrations() {
 
       const el = document.createElement("div");
       el.className = "card";
-      el.style.borderLeft = `4px solid ${statusColor}`;
+      el.style.borderLeft = `4px solid #4ade80`;
       el.innerHTML = `
         <h3 style="margin: 0 0 10px 0; color: #a78bfa; font-size: 18px;">${data.eventTitle}</h3>
         <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Заявка № <b>${data.listNumber}</b></p>
         <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Сумма: <b>${data.totalPrice} руб.</b></p>
-        <p style="margin: 0 0 10px 0; font-size: 14px; color: ${statusColor}; font-weight: bold;">Статус: ${statusText}</p>
+        <p style="margin: 0 0 10px 0; font-size: 14px; color: #4ade80; font-weight: bold;">Статус: ✅ Место забронировано</p>
         <div style="font-size: 13px; color: #94a3b8; background: #0f172a; padding: 10px; border-radius: 6px;"><b>Гости:</b><br>${guestsHtml || '—'}</div>
       `;
       container.appendChild(el);
@@ -168,7 +158,6 @@ async function loadMyRegistrations() {
   }
 }
 
-// --- АВТОРИЗАЦИЯ ---
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginHeaderBtn.classList.add("hidden");
@@ -206,7 +195,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// --- МОДАЛЬНОЕ ОКНО ЗАПИСИ ---
 let currentEventId = null;
 let childCount = 0;
 
@@ -234,7 +222,6 @@ window.openBookingModal = function(eventId, limit, title) {
 
 window.closeModal = function() { document.getElementById("booking-modal").classList.add("hidden"); };
 
-// Динамическое добавление взрослых
 document.getElementById("adults-container").addEventListener("input", (e) => {
   if (e.target.classList.contains("adult-name") && e.target.value.trim() !== "") {
     const inputs = document.querySelectorAll(".adult-name");
@@ -248,7 +235,6 @@ document.getElementById("adults-container").addEventListener("input", (e) => {
   }
 });
 
-// Добавление детей
 document.getElementById("add-child-btn").addEventListener("click", () => {
   childCount++;
   const div = document.createElement("div");
@@ -268,7 +254,6 @@ function updateTotal() {
 
 document.getElementById("booking-form").addEventListener("input", updateTotal);
 
-// Отправка формы записи
 document.getElementById("booking-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const user = auth.currentUser;
@@ -297,7 +282,7 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
       guests: guests,
       totalPrice: totalPrice,
       listNumber: listNumber,
-      status: "pending",
+      status: "paid", // СРАЗУ ОПЛАЧЕНО
       createdAt: new Date().toISOString()
     });
 
