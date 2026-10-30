@@ -215,7 +215,17 @@
     </div>
   </div>
 
-        <h3 style="color: #cbd5e1; font-size: 16px; margin-bottom: 10px;">Инструкция по оплате через ЕРИП:</h3>
+  <!-- МОДАЛЬНОЕ ОКНО: ОПЛАТА ЕРИП -->
+  <div id="payment-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="border: 2px solid #4ade80;">
+      <h2 style="color: #4ade80; margin-top: 0; text-align: center;">Заявка создана!</h2>
+      
+      <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+        <p style="margin: 5px 0; color: #cbd5e1;">Номер вашей заявки: <b style="color: #a78bfa; font-size: 18px;" id="pay-list-number"></b></p>
+        <p style="margin: 5px 0; color: #cbd5e1;">Сумма к оплате: <b style="color: #4ade80; font-size: 18px;" id="pay-total-price"></b> руб.</p>
+      </div>
+
+      <h3 style="color: #cbd5e1; font-size: 16px; margin-bottom: 10px; text-align: center;">Инструкция по оплате через ЕРИП:</h3>
       
       <!-- НОВЫЙ ПУТЬ ЧЕРЕЗ СТРЕЛОЧКИ -->
       <div style="background: #0f172a; padding: 15px; border-radius: 8px; font-size: 14px; color: #cbd5e1; line-height: 1.6; margin-bottom: 20px; text-align: center;">
@@ -229,12 +239,15 @@
         <b>№ в списке</b> <span style="color: #a78bfa; font-weight: bold;">→</span> 
         <b>Назначение платежа</b>
       </div>
-        <p style="font-size: 14px; color: #4ade80; text-align: center; margin-bottom: 20px; font-weight: bold;">
-        Ваше место уже забронировано! Пожалуйста, оплатите заявку через ЕРИП.
+
+      <p style="font-size: 14px; color: #4ade80; text-align: center; margin-bottom: 20px; font-weight: bold;">
+        Ваше место забронировано! Пожалуйста, оплатите заявку через ЕРИП.
       </p>
 
       <button onclick="closePaymentModal()" style="background: #10b981;">Поехали!</button>
-  <script type="module" src="app.js"></script>
+    </div>
+  </div>
+
+  <script type="module" src="app.js?v=3"></script>
 </body>
 </html>
-
