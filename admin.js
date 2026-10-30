@@ -2,8 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
-// Подключаем библиотеку для DOCX
-import HTMLtoDOCX from "https://cdn.jsdelivr.net/npm/@turbodocx/html-to-docx@1.0.0/+esm";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -161,6 +159,77 @@ window.downloadWord = async function() {
       }
     });
 
+    // Формируем ПОЛНЫЙ HTML-документ
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Times New Roman', serif; }
+          h1 { text-align: center; }
+          .event-header { margin-top: 30px; background: #f0f0f0; padding: 10px; border-left: 4px solid #4CAF50; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+          th { background-color: #e0e0e0; }
+        </style>
+      </head>
+      <body>
+        <h1>Списки гостей обсерватории</h1>
+    `;
+
+    for (const eventId in guestsByEvent) {
+      const eventData = guestsByEvent[eventId];
+      let dateStr = "Дата не указана", timeStr = "";
+      if (eventData.date) {
+        const d = new Date(eventData.date);
+        dateStr = d.toLocaleDateString("ru-RU");
+        timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
+      }
+      eventData.guests.sort((a, b) => a.name.localeCompare(b.name));
+      
+      htmlContent += `
+        <div class="event-header">
+          <h2>Экскурсия: ${eventData.title}</h2>
+          <p style="margin: 0;">Дата: ${dateStr} | Время: ${timeStr}</p>
+        </div>
+        <table>
+          <tr>
+            <th style="width: 50px;">№</th>
+            <th>ФИО</th>
+            <th style="width: 150px;">Категория</th>
+          </tr>`;
+      
+      eventData.guests.forEach((guest, index) => {
+        htmlContent += `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${guest.name}</td>
+            <td>${guest.isChild ? "Ребенок (до 14 лет)" : "Взрослый"}</td>
+          </tr>`;
+      });
+      htmlContent += `</table>`;
+    }
+
+    htmlContent += `</body></html>`;
+
+    // Используем глобальную переменную htmlDocx (из подключенного скрипта)
+    const converted = window.htmlDocx.asBlob(htmlContent);
+    
+    const url = URL.createObjectURL(converted);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Списки_гостей_по_экскурсиям.docx";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+  } catch (error) {
+    console.error("Ошибка генерации Word:", error);
+    alert("Ошибка при создании файла.");
+  }
+};
     let htmlContent = `<h1 style="text-align: center;">Списки гостей обсерватории</h1>`;
 
     for (const eventId in guestsByEvent) {
