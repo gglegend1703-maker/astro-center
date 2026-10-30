@@ -143,7 +143,7 @@ async function loadMyRegistrations() {
 
       const el = document.createElement("div");
       el.className = "card";
-      el.style.borderLeft = `4px solid #4ade80`; // Зеленая рамка
+      el.style.borderLeft = `4px solid #4ade80`; // Только зеленая рамка, без статуса
       el.innerHTML = `
         <h3 style="margin: 0 0 10px 0; color: #a78bfa; font-size: 18px;">${data.eventTitle}</h3>
         <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Заявка № <b>${data.listNumber}</b></p>
