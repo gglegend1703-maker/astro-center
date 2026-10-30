@@ -102,9 +102,10 @@ async function loadGuests() {
     container.innerHTML = "<p style='color: #f87171;'>Ошибка загрузки.</p>";
   }
 }
+
 window.downloadWord = async function() {
   try {
-    const q = query(collection(db, "registrations")); // Берем ВСЕ заявки
+    const q = query(collection(db, "registrations"));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
       alert("Нет заявок для формирования списка.");
@@ -199,7 +200,6 @@ window.downloadWord = async function() {
         return; 
       } catch (error) {
         if (error.name === 'AbortError') return;
-        console.error("Ошибка Web Share:", error);
       }
     }
 
@@ -258,7 +258,7 @@ if (newsForm) {
     try {
       let imageUrl = "";
       if (file) {
-        const IMGBB_API_KEY = "ВАШ_КЛЮЧ_IMGBB"; // Вставьте ваш ключ
+        const IMGBB_API_KEY = "ВАШ_КЛЮЧ_IMGBB"; // Вставьте ключ
         const formData = new FormData();
         formData.append("image", file);
         const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData });
