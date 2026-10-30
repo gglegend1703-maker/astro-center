@@ -130,6 +130,7 @@ window.confirmPayment = async function(regId) {
 
 window.downloadWord = async function() {
   try {
+    // 1. Получаем оплаченные заявки
     const q = query(collection(db, "registrations"), where("status", "==", "paid"));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
@@ -137,6 +138,7 @@ window.downloadWord = async function() {
       return;
     }
 
+    // 2. Получаем экскурсии (название и дату)
     const eventsSnapshot = await getDocs(collection(db, "events"));
     const eventsMap = {};
     eventsSnapshot.forEach(doc => {
@@ -144,6 +146,7 @@ window.downloadWord = async function() {
       eventsMap[doc.id] = { title: data.title, date: data.date };
     });
 
+    // 3. Группируем гостей по экскурсиям
     const guestsByEvent = {};
     snapshot.forEach(doc => {
       const data = doc.data();
@@ -160,6 +163,7 @@ window.downloadWord = async function() {
       }
     });
 
+    // 4. Формируем HTML
     let htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -214,9 +218,11 @@ window.downloadWord = async function() {
 
     htmlContent += `</body></html>`;
 
+    // 5. Конвертируем HTML в Blob
     const converted = window.htmlDocx.asBlob(htmlContent);
     const fileName = "Списки_гостей_по_экскурсиям.docx";
 
+    // 6. Пытаемся использовать Web Share API (для iPhone)
     const file = new File([converted], fileName, { 
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
     });
@@ -228,30 +234,44 @@ window.downloadWord = async function() {
           title: 'Списки гостей',
           text: 'Файл со списками гостей обсерватории'
         });
-        return; 
+        return; // Успешно поделились, выходим
       } catch (error) {
         if (error.name === 'AbortError') return;
         console.error("Ошибка Web Share:", error);
+        // Если не сработало, идем дальше
       }
     }
 
-    const url = URL.createObjectURL(converted);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 60000); 
+    // 7. ОБХОДНОЙ ПУТЬ ДЛЯ iOS SAFARI
+    // Читаем Blob как Data URL
+    const reader = new FileReader();
+    reader.onload = function() {
+      const dataUrl = reader.result;
+      // Открываем новую вкладку
+      const newWindow = window.open();
+      if (newWindow) {
+        // Вставляем HTML с кнопкой для скачивания
+        newWindow.document.write(`
+          <html>
+            <head><title>Скачать файл</title></head>
+            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif;">
+              <a href="${dataUrl}" download="${fileName}" style="padding: 20px; background: #10b981; color: white; text-decoration: none; border-radius: 8px; font-size: 18px;">
+                Нажмите, чтобы сохранить файл
+              </a>
+            </body>
+          </html>
+        `);
+      } else {
+        alert("Пожалуйста, разрешите всплывающие окна для этого сайта, чтобы скачать файл.");
+      }
+    };
+    reader.readAsDataURL(converted);
 
   } catch (error) {
     console.error("Ошибка генерации Word:", error);
     alert("Ошибка при создании файла.");
   }
-};
+}; 
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
