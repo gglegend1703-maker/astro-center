@@ -130,6 +130,7 @@ window.confirmPayment = async function(regId) {
 
 window.downloadWord = async function() {
   try {
+    // 1. Получаем оплаченные заявки
     const q = query(collection(db, "registrations"), where("status", "==", "paid"));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
@@ -137,6 +138,7 @@ window.downloadWord = async function() {
       return;
     }
 
+    // 2. Получаем экскурсии (чтобы знать название и дату)
     const eventsSnapshot = await getDocs(collection(db, "events"));
     const eventsMap = {};
     eventsSnapshot.forEach(doc => {
@@ -144,11 +146,13 @@ window.downloadWord = async function() {
       eventsMap[doc.id] = { title: data.title, date: data.date };
     });
 
+    // 3. Группируем гостей по экскурсиям
     const guestsByEvent = {};
     snapshot.forEach(doc => {
       const data = doc.data();
       const eventId = data.eventId;
       const eventInfo = eventsMap[eventId] || { title: "Неизвестная экскурсия", date: "" };
+      
       if (!guestsByEvent[eventId]) {
         guestsByEvent[eventId] = { title: eventInfo.title, date: eventInfo.date, guests: [] };
       }
@@ -159,6 +163,107 @@ window.downloadWord = async function() {
       }
     });
 
+    // 4. Формируем HTML для документа Word
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Times New Roman', serif; }
+          h1 { text-align: center; }
+          .event-header { margin-top: 30px; background: #f0f0f0; padding: 10px; border-left: 4px solid #4CAF50; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+          th { background-color: #e0e0e0; }
+        </style>
+      </head>
+      <body>
+        <h1>Списки гостей обсерватории</h1>
+    `;
+
+    for (const eventId in guestsByEvent) {
+      const eventData = guestsByEvent[eventId];
+      let dateStr = "Дата не указана", timeStr = "";
+      if (eventData.date) {
+        const d = new Date(eventData.date);
+        dateStr = d.toLocaleDateString("ru-RU");
+        timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
+      }
+      
+      // Сортируем гостей по алфавиту
+      eventData.guests.sort((a, b) => a.name.localeCompare(b.name));
+      
+      htmlContent += `
+        <div class="event-header">
+          <h2>Экскурсия: ${eventData.title}</h2>
+          <p style="margin: 0;">Дата: ${dateStr} | Время: ${timeStr}</p>
+        </div>
+        <table>
+          <tr>
+            <th style="width: 50px;">№</th>
+            <th>ФИО</th>
+            <th style="width: 150px;">Категория</th>
+          </tr>`;
+      
+      eventData.guests.forEach((guest, index) => {
+        htmlContent += `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${guest.name}</td>
+            <td>${guest.isChild ? "Ребенок (до 14 лет)" : "Взрослый"}</td>
+          </tr>`;
+      });
+      htmlContent += `</table>`;
+    }
+
+    htmlContent += `</body></html>`;
+
+    // 5. Конвертируем HTML в Blob (файл)
+    const converted = window.htmlDocx.asBlob(htmlContent);
+    const fileName = "Списки_гостей_по_экскурсиям.docx";
+
+    // 6. Создаем объект File для Web Share API
+    const file = new File([converted], fileName, { 
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+    });
+
+    // 7. Проверяем поддержку Web Share API (мобильные устройства)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'Списки гостей',
+          text: 'Файл со списками гостей обсерватории'
+        });
+        return; // Успешно поделились, выходим
+      } catch (error) {
+        // Если пользователь нажал "Отмена" в меню телефона, просто игнорируем
+        if (error.name === 'AbortError') return;
+        console.error("Ошибка Web Share:", error);
+        // Если произошла другая ошибка — пробуем скачать обычным способом
+      }
+    }
+
+    // 8. Классическое скачивание (для ПК и тех, у кого нет Web Share)
+    const url = URL.createObjectURL(converted);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    
+    // ВАЖНО: Не удаляем ссылку сразу, даем браузеру время на скачивание (особенно Safari)
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 60000); // Ждем минуту
+
+  } catch (error) {
+    console.error("Ошибка генерации Word:", error);
+    alert("Ошибка при создании файла.");
+  }
+};
     let htmlContent = `
       <!DOCTYPE html>
       <html>
