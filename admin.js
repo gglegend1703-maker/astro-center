@@ -338,4 +338,4 @@ if (newsForm) {
       newsMessage.className = "error";
     }
   });
-}
+
