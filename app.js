@@ -21,9 +21,43 @@ const eventsList = document.getElementById("events-list");
 
 let isLoginMode = true;
 
+// --- УПРАВЛЕНИЕ МОДАЛЬНЫМИ ОКНАМИ ---
 window.openAuthModal = function() { document.getElementById("auth-modal").classList.remove("hidden"); };
 window.closeAuthModal = function() { document.getElementById("auth-modal").classList.add("hidden"); };
 
+window.openBookingModal = function(eventId, limit, title) {
+  // Если пользователь не авторизован, отправляем на форму входа
+  if (!auth.currentUser) {
+    alert("Чтобы записаться на экскурсию, пожалуйста, войдите или зарегистрируйтесь.");
+    openAuthModal();
+    return;
+  }
+
+  currentEventId = eventId;
+  childCount = 0;
+  
+  document.getElementById("modal-title").textContent = `Запись: ${title}`;
+  document.getElementById("adults-container").innerHTML = `<div class="form-group"><input type="text" class="adult-name" placeholder="ФИО взрослого" required></div>`;
+  document.getElementById("children-container").innerHTML = "";
+  document.getElementById("booking-form").reset();
+  document.getElementById("booking-modal").classList.remove("hidden");
+  updateTotal();
+
+  const user = auth.currentUser;
+  if (user) {
+    getDoc(doc(db, "users", user.uid)).then(docSnap => {
+      if (docSnap.exists()) {
+        document.querySelector(".adult-name").value = docSnap.data().fullname || "";
+        updateTotal();
+      }
+    });
+  }
+};
+
+window.closeModal = function() { document.getElementById("booking-modal").classList.add("hidden"); };
+window.closePaymentModal = function() { document.getElementById("payment-modal").classList.add("hidden"); };
+
+// --- ВКЛАДКИ ВХОД/РЕГИСТРАЦИЯ ---
 window.switchTab = function(mode) {
   isLoginMode = (mode === 'login');
   document.getElementById("tab-login").classList.toggle("active", isLoginMode);
@@ -35,6 +69,7 @@ window.switchTab = function(mode) {
   authForm.reset();
 };
 
+// --- ОБРАБОТКА ВХОДА / РЕГИСТРАЦИИ ---
 authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = emailInput.value;
@@ -75,6 +110,7 @@ authForm.addEventListener("submit", async (e) => {
 
 logoutBtn.addEventListener("click", () => signOut(auth));
 
+// --- ЗАГРУЗКА ЭКСКУРСИЙ (ВИДНО ВСЕМ) ---
 async function loadEvents() {
   eventsList.innerHTML = "<p style='text-align: center; color: #94a3b8;'>Загрузка...</p>";
   try {
@@ -85,6 +121,7 @@ async function loadEvents() {
     }
     eventsList.innerHTML = "";
 
+    // Считаем свободные места
     const regSnapshot = await getDocs(collection(db, "registrations"));
     const regCounts = {};
     regSnapshot.forEach(doc => {
@@ -123,6 +160,7 @@ async function loadEvents() {
   }
 }
 
+// --- ЗАГРУЗКА НОВОСТЕЙ (ВИДНО ВСЕМ) ---
 async function loadNews() {
   const newsList = document.getElementById("news-list");
   if (!newsList) return;
@@ -149,6 +187,7 @@ async function loadNews() {
   }
 }
 
+// --- ЗАГРУЗКА МОИХ ЗАЯВОК (ТОЛЬКО ДЛЯ АВТОРИЗОВАННЫХ) ---
 async function loadMyRegistrations() {
   const container = document.getElementById("my-registrations-list");
   const user = auth.currentUser;
@@ -200,6 +239,7 @@ window.cancelRegistration = async function(regId) {
   }
 };
 
+// --- СЛЕЖЕНИЕ ЗА АВТОРИЗАЦИЕЙ ---
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginHeaderBtn.classList.add("hidden");
@@ -216,8 +256,7 @@ onAuthStateChanged(auth, async (user) => {
       }
     } catch (e) { console.log(e); }
 
-    loadEvents();
-    loadMyRegistrations();
+    loadMyRegistrations(); // Загружаем только заявки
 
     try {
       const adminDoc = await getDoc(doc(db, "admins", user.uid));
@@ -237,32 +276,9 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+// --- ЛОГИКА ЗАПИСИ ---
 let currentEventId = null;
 let childCount = 0;
-
-window.openBookingModal = function(eventId, limit, title) {
-  currentEventId = eventId;
-  childCount = 0;
-  
-  document.getElementById("modal-title").textContent = `Запись: ${title}`;
-  document.getElementById("adults-container").innerHTML = `<div class="form-group"><input type="text" class="adult-name" placeholder="ФИО взрослого" required></div>`;
-  document.getElementById("children-container").innerHTML = "";
-  document.getElementById("booking-form").reset();
-  document.getElementById("booking-modal").classList.remove("hidden");
-  updateTotal();
-
-  const user = auth.currentUser;
-  if (user) {
-    getDoc(doc(db, "users", user.uid)).then(docSnap => {
-      if (docSnap.exists()) {
-        document.querySelector(".adult-name").value = docSnap.data().fullname || "";
-        updateTotal();
-      }
-    });
-  }
-};
-
-window.closeModal = function() { document.getElementById("booking-modal").classList.add("hidden"); };
 
 document.getElementById("adults-container").addEventListener("input", (e) => {
   if (e.target.classList.contains("adult-name") && e.target.value.trim() !== "") {
@@ -363,6 +379,6 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
   }
 });
 
-window.closePaymentModal = function() { document.getElementById("payment-modal").classList.add("hidden"); };
-
+// --- ЗАГРУЗКА ПРИ СТАРТЕ ---
+loadEvents();
 loadNews();
