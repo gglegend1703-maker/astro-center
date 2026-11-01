@@ -124,6 +124,7 @@ window.downloadWord = async function() {
       return;
     }
 
+    // Получаем экскурсии
     const eventsSnapshot = await getDocs(collection(db, "events"));
     const eventsMap = {};
     eventsSnapshot.forEach(doc => {
@@ -131,17 +132,27 @@ window.downloadWord = async function() {
       eventsMap[doc.id] = { title: data.title, date: data.date };
     });
 
-    const guestsByEvent = {};
+    // Группируем заявки по экскурсиям
+    const eventsData = {};
     snapshot.forEach(doc => {
       const data = doc.data();
       const eventId = data.eventId;
       const eventInfo = eventsMap[eventId] || { title: "Неизвестная экскурсия", date: "" };
-      if (!guestsByEvent[eventId]) {
-        guestsByEvent[eventId] = { title: eventInfo.title, date: eventInfo.date, guests: [] };
+      
+      if (!eventsData[eventId]) {
+        eventsData[eventId] = { 
+          title: eventInfo.title, 
+          date: eventInfo.date, 
+          groups: [] // массив заявок
+        };
       }
+
+      // Собираем всех гостей этой заявки в одну группу
       if (data.guests && Array.isArray(data.guests)) {
-        data.guests.forEach(g => {
-          guestsByEvent[eventId].guests.push({ name: g.name.toUpperCase(), isChild: g.isChild });
+        eventsData[eventId].groups.push({
+          listNumber: data.listNumber,
+          totalPrice: data.totalPrice,
+          guests: data.guests.map(g => g.name.toUpperCase())
         });
       }
     });
@@ -164,36 +175,64 @@ window.downloadWord = async function() {
         <h1>Списки гостей обсерватории</h1>
     `;
 
-    for (const eventId in guestsByEvent) {
-      const eventData = guestsByEvent[eventId];
+    for (const eventId in eventsData) {
+      const event = eventsData[eventId];
       let dateStr = "Дата не указана", timeStr = "";
-      if (eventData.date) {
-        const d = new Date(eventData.date);
+      if (event.date) {
+        const d = new Date(event.date);
         dateStr = d.toLocaleDateString("ru-RU");
         timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
       }
-      eventData.guests.sort((a, b) => a.name.localeCompare(b.name));
-      
+
       htmlContent += `
         <div class="event-header">
-          <h2>Экскурсия: ${eventData.title}</h2>
+          <h2>Экскурсия: ${event.title}</h2>
           <p style="margin: 0;">Дата: ${dateStr} | Время: ${timeStr}</p>
         </div>
         <table>
           <tr>
             <th style="width: 50px;">№</th>
+            <th style="width: 80px;">№ заявки</th>
             <th>ФИО</th>
-            <th style="width: 150px;">Категория</th>
+            <th style="width: 100px;">Сумма заявки</th>
+            <th style="width: 150px;">Отметка об оплате</th>
           </tr>`;
-      
-      eventData.guests.forEach((guest, index) => {
-        htmlContent += `
-          <tr>
-            <td>${index + 1}</td>
-            <td>${guest.name}</td>
-            <td>${guest.isChild ? "Ребенок (до 14 лет)" : "Взрослый"}</td>
-          </tr>`;
+
+      let rowIndex = 1;
+
+      // Перебираем каждую заявку (группу)
+      event.groups.forEach(group => {
+        // Количество человек в группе
+        const groupSize = group.guests.length;
+
+        group.guests.forEach((guestName, index) => {
+          htmlContent += `<tr>`;
+          
+          // Если это первый человек в группе, объединяем ячейки (rowspan)
+          if (index === 0) {
+            htmlContent += `
+              <td style="vertical-align: middle;" rowspan="${groupSize}">${rowIndex}</td>
+              <td style="vertical-align: middle;" rowspan="${groupSize}">${group.listNumber}</td>
+            `;
+          }
+
+          // ФИО
+          htmlContent += `<td>${guestName}</td>`;
+
+          // Если это первый человек в группе, объединяем сумму и отметку
+          if (index === 0) {
+            htmlContent += `
+              <td style="vertical-align: middle;" rowspan="${groupSize}">${group.totalPrice} руб.</td>
+              <td style="vertical-align: middle;" rowspan="${groupSize}"></td>
+            `;
+          }
+
+          htmlContent += `</tr>`;
+        });
+        
+        rowIndex++;
       });
+
       htmlContent += `</table>`;
     }
 
@@ -232,7 +271,6 @@ window.downloadWord = async function() {
     alert("Ошибка при создании файла.");
   }
 };
-
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   formMessage.textContent = "Создание...";
