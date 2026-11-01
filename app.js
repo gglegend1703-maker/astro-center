@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, getDocs, addDoc, getCountFromServer, setDoc, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, collection, getDocs, addDoc, getCountFromServer, setDoc, query, where, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 
 const app = initializeApp(firebaseConfig);
@@ -20,6 +20,8 @@ const logoutBtn = document.getElementById("logout-btn");
 const eventsList = document.getElementById("events-list");
 
 let isLoginMode = true;
+let currentEventId = null;
+let childCount = 0;
 
 // --- МОДАЛЬНЫЕ ОКНА ---
 window.openAuthModal = function() { document.getElementById("auth-modal").classList.remove("hidden"); };
@@ -109,7 +111,7 @@ authForm.addEventListener("submit", async (e) => {
 
 logoutBtn.addEventListener("click", () => signOut(auth));
 
-// --- ЗАГРУЗКА ЭКСКУРСИЙ (ВИДНО ВСЕМ) ---
+// --- ЗАГРУЗКА ЭКСКУРСИЙ ---
 async function loadEvents() {
   eventsList.innerHTML = "<p style='text-align: center; color: #94a3b8;'>Загрузка...</p>";
   try {
@@ -120,19 +122,12 @@ async function loadEvents() {
     }
     eventsList.innerHTML = "";
 
-    const regSnapshot = await getDocs(collection(db, "registrations"));
-    const regCounts = {};
-    regSnapshot.forEach(doc => {
-      const data = doc.data();
-      const eventId = data.eventId;
-      if (!regCounts[eventId]) regCounts[eventId] = 0;
-      regCounts[eventId] += (data.guests ? data.guests.length : 0);
-    });
-
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
       const date = new Date(data.date).toLocaleString("ru-RU");
-      const booked = regCounts[docSnap.id] || 0;
+      
+      // Берем занятые места из документа, если поля нет - считаем 0
+      const booked = data.bookedSeats || 0; 
       const free = data.limit - booked;
       
       let btnHtml = `<button style="width: auto; padding: 8px 15px; font-size: 14px; margin-top: 10px; float: right;" onclick="openBookingModal('${docSnap.id}', ${data.limit}, '${data.title}')">Записаться</button>`;
@@ -154,11 +149,11 @@ async function loadEvents() {
     });
   } catch (error) {
     console.error("Ошибка загрузки экскурсий:", error);
-    eventsList.innerHTML = "<p style='color: #f87171; text-align: center;'>Ошибка загрузки. Проверьте права доступа в Firebase.</p>";
+    eventsList.innerHTML = "<p style='color: #f87171; text-align: center;'>Ошибка загрузки.</p>";
   }
 }
 
-// --- ЗАГРУЗКА НОВОСТЕЙ (ВИДНО ВСЕМ) ---
+// --- ЗАГРУЗКА НОВОСТЕЙ ---
 async function loadNews() {
   const newsList = document.getElementById("news-list");
   if (!newsList) return;
@@ -177,7 +172,7 @@ async function loadNews() {
       const el = document.createElement("div");
       el.className = "card news-card";
       let imgHtml = data.imageUrl ? `<img src="${data.imageUrl}" alt="Фото">` : "";
-      el.innerHTML = `${imgHtml}<h3>${data.title}</h3><p>${data.content}</p>`;
+      el.innerHTML = `${imgHtml}<h3>${data.title}</h3><p style="word-wrap: break-word;">${data.content}</p>`;
       newsList.appendChild(el);
     });
   } catch (error) {
@@ -227,7 +222,20 @@ async function loadMyRegistrations() {
 window.cancelRegistration = async function(regId) {
   if (!confirm("Вы уверены, что хотите отменить заявку? Место будет освобождено.")) return;
   try {
+    // Получаем данные заявки перед удалением
+    const regDoc = await getDoc(doc(db, "registrations", regId));
+    const regData = regDoc.data();
+    
+    // Удаляем заявку
     await deleteDoc(doc(db, "registrations", regId));
+    
+    // Уменьшаем счетчик в экскурсии
+    if (regData && regData.eventId && regData.guests) {
+      await updateDoc(doc(db, "events", regData.eventId), {
+        bookedSeats: increment(-regData.guests.length)
+      });
+    }
+    
     alert("Заявка отменена.");
     loadMyRegistrations();
     loadEvents();
@@ -275,9 +283,6 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // --- ЛОГИКА ЗАПИСИ ---
-let currentEventId = null;
-let childCount = 0;
-
 document.getElementById("adults-container").addEventListener("input", (e) => {
   if (e.target.classList.contains("adult-name") && e.target.value.trim() !== "") {
     const inputs = document.querySelectorAll(".adult-name");
@@ -328,16 +333,11 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
 
     const totalPrice = parseInt(document.getElementById("total-price").textContent);
     
+    // ПРОВЕРКА ЛИМИТА (на основе данных из документа)
     const eventDoc = await getDoc(doc(db, "events", currentEventId));
     const eventData = eventDoc.data();
-    const regQuery = query(collection(db, "registrations"), where("eventId", "==", currentEventId));
-    const regSnapshot = await getDocs(regQuery);
-    let booked = 0;
-    regSnapshot.forEach(doc => {
-      const data = doc.data();
-      booked += (data.guests ? data.guests.length : 0);
-    });
-
+    const booked = eventData.bookedSeats || 0;
+    
     if (booked + guests.length > eventData.limit) {
       alert(`К сожалению, свободных мест недостаточно. Осталось: ${eventData.limit - booked}.`);
       submitBtn.disabled = false;
@@ -348,6 +348,12 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
     const countSnapshot = await getCountFromServer(collection(db, "registrations"));
     const listNumber = countSnapshot.data().count + 1;
 
+    // 1. Обновляем счетчик в экскурсии
+    await updateDoc(doc(db, "events", currentEventId), {
+      bookedSeats: increment(guests.length)
+    });
+
+    // 2. Создаем заявку
     await addDoc(collection(db, "registrations"), {
       eventId: currentEventId,
       eventTitle: document.getElementById("modal-title").textContent.replace("Запись: ", ""),
@@ -376,7 +382,6 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
   }
 });
 
-// --- ЗАГРУЗКА ПРИ СТАРТЕ (ДЛЯ ВСЕХ) ---
-// Эти вызовы должны быть ВНЕ onAuthStateChanged, чтобы срабатывать сразу
+// --- ЗАГРУЗКА ПРИ СТАРТЕ ---
 loadEvents();
 loadNews();
