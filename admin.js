@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, doc, getDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, getDoc, query, where, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 
 const app = initializeApp(firebaseConfig);
@@ -69,7 +69,6 @@ async function loadGuests() {
   container.innerHTML = "Загрузка...";
   
   try {
-    // Загружаем пользователей для получения телефонов
     const usersSnapshot = await getDocs(collection(db, "users"));
     const usersMap = {};
     usersSnapshot.forEach(doc => {
@@ -91,6 +90,7 @@ async function loadGuests() {
           <th style="padding: 10px;">ФИО (все)</th>
           <th style="padding: 10px;">Сумма</th>
           <th style="padding: 10px;">Телефон</th>
+          <th style="padding: 10px;">Действие</th>
         </tr>
     `;
 
@@ -109,6 +109,12 @@ async function loadGuests() {
           <td style="padding: 10px;">${names}</td>
           <td style="padding: 10px;">${data.totalPrice || 0} руб.</td>
           <td style="padding: 10px;">${phone}</td>
+          <td style="padding: 10px;">
+            <button onclick="deleteRegistration('${docSnap.id}')" 
+                    style="background: #ef4444; width: auto; padding: 6px 12px; font-size: 12px; margin: 0;">
+              🗑 Удалить
+            </button>
+          </td>
         </tr>
       `;
     });
@@ -332,6 +338,44 @@ if (newsForm) {
       newsMessage.className = "error";
     }
   });
+  
+  window.deleteRegistration = async function(regId) {
+  if (!confirm("Вы уверены, что хотите удалить эту заявку? Места будут освобождены.")) return;
+  
+  try {
+    // 1. Получаем данные заявки ПЕРЕД удалением
+    const regDoc = await getDoc(doc(db, "registrations", regId));
+    
+    if (!regDoc.exists()) {
+      alert("Заявка уже удалена.");
+      loadGuests();
+      return;
+    }
+    
+    const regData = regDoc.data();
+    
+    // 2. Удаляем заявку
+    await deleteDoc(doc(db, "registrations", regId));
+    
+    // 3. Освобождаем места в экскурсии (уменьшаем счётчик)
+    if (regData.eventId && regData.guests && Array.isArray(regData.guests)) {
+      try {
+        await updateDoc(doc(db, "events", regData.eventId), {
+          bookedSeats: increment(-regData.guests.length)
+        });
+      } catch (e) {
+        // Если экскурсия уже удалена — просто игнорируем
+        console.warn("Не удалось обновить счётчик мест (возможно, экскурсия удалена):", e);
+      }
+    }
+    
+    alert("Заявка удалена, места освобождены.");
+    loadGuests(); // Обновляем список
+  } catch (error) {
+    console.error("Ошибка удаления заявки:", error);
+    alert("Не удалось удалить заявку.");
+  }
+};
   
   window.deleteEvent = async function(eventId) {
   if (!confirm("Вы уверены, что хотите удалить эту экскурсию? Все связанные с ней данные останутся в заявках, но сама экскурсия исчезнет из списка.")) return;
