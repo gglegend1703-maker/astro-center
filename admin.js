@@ -40,16 +40,22 @@ async function loadEvents() {
       eventsContainer.innerHTML = "<p style='color: #94a3b8;'>Пока нет созданных экскурсий.</p>";
       return;
     }
-    querySnapshot.forEach((doc) => {
+        querySnapshot.forEach((doc) => {
       const data = doc.data();
       const date = new Date(data.date).toLocaleString("ru-RU");
       const el = document.createElement("div");
       el.className = "event-item";
+      // Добавляем Flexbox, чтобы кнопка удаления была справа
+      el.style.display = "flex";
+      el.style.justifyContent = "space-between";
+      el.style.alignItems = "center";
+      
       el.innerHTML = `
         <div class="event-info">
           <h3>${data.title}</h3>
           <p>📅 ${date} | 👥 Лимит: ${data.limit} чел.</p>
         </div>
+        <button onclick="deleteEvent('${doc.id}')" style="background: #ef4444; width: auto; padding: 8px 15px; font-size: 14px; margin: 0;">Удалить</button>
       `;
       eventsContainer.appendChild(el);
     });
@@ -326,4 +332,22 @@ if (newsForm) {
       newsMessage.className = "error";
     }
   });
+  
+  window.deleteEvent = async function(eventId) {
+  if (!confirm("Вы уверены, что хотите удалить эту экскурсию? Все связанные с ней данные останутся в заявках, но сама экскурсия исчезнет из списка.")) return;
+  
+  try {
+    // Импортируем deleteDoc, если он еще не импортирован в начале файла
+    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    
+    await deleteDoc(doc(db, "events", eventId));
+    alert("Экскурсия удалена.");
+    
+    // Обновляем список экскурсий на странице
+    loadEvents(); 
+  } catch (error) {
+    console.error("Ошибка удаления экскурсии:", error);
+    alert("Не удалось удалить экскурсию.");
+  }
+};
 }
