@@ -28,6 +28,33 @@
     .event-info p { margin: 0; font-size: 14px; color: #94a3b8; }
     .error { color: #f87171; font-size: 14px; margin-top: 10px; }
     .success { color: #4ade80; font-size: 14px; margin-top: 10px; }
+    .event-item { gap: 12px; }
+    .event-info {
+      min-width: 0;   
+      flex: 1;
+      overflow: hidden;
+    }
+    .event-info h3,
+    .event-info p {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .event-item > button { flex-shrink: 0; } 
+    
+    #guests-container table {
+      table-layout: fixed;
+      width: 100%;
+    }
+    #guests-container th,
+    #guests-container td {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      vertical-align: top;
+    }
+    #guests-container th:nth-child(1), #guests-container td:nth-child(1) { width: 50px; }
+    #guests-container th:nth-child(3), #guests-container td:nth-child(3) { width: 140px; }
+    #guests-container th:nth-child(4), #guests-container td:nth-child(4) { width: 100px; }
+    #guests-container th:nth-child(5), #guests-container td:nth-child(5) { width: 150px; }      
   </style>
 </head>
 <body>
