@@ -52,27 +52,34 @@
     </div>
   </div>
 
-  <div class="main-content">
-    <div id="user-block" class="container hidden">
-      <h1 id="welcome-text" style="text-align: center; color: #a78bfa; margin-top: 0;">Добро пожаловать!</h1>
-      <hr style="border-color: #334155; margin: 20px 0;">
-      <h2 style="font-size: 20px; margin-bottom: 15px;">Мои заявки</h2>
-      <div id="my-registrations-list" style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px;">
-        <p style="text-align: center; color: #94a3b8;">Загрузка заявок...</p>
-      </div>
-      <hr style="border-color: #334155; margin: 30px 0;">
-      <h2 style="font-size: 20px; margin-bottom: 15px;">Доступные экскурсии</h2>
+    <div class="main-content">
+    
+    <!-- БЛОК ЭКСКУРСИЙ (Виден всем) -->
+    <div class="container">
+      <h2>Актуальные экскурсии</h2>
       <div id="events-list" style="display: flex; flex-direction: column; gap: 15px;">
         <p style="text-align: center; color: #94a3b8;">Загрузка экскурсий...</p>
       </div>
     </div>
 
+    <!-- БЛОК ЛИЧНОГО КАБИНЕТА (Только для авторизованных) -->
+    <div id="user-block" class="container hidden">
+      <h1 id="welcome-text" style="text-align: center; color: #a78bfa; margin-top: 0;">Добро пожаловать!</h1>
+      <hr style="border-color: #334155; margin: 20px 0;">
+      <h2 style="font-size: 20px; margin-bottom: 15px;">Мои заявки</h2>
+      <div id="my-registrations-list" style="display: flex; flex-direction: column; gap: 15px;">
+        <p style="text-align: center; color: #94a3b8;">Загрузка заявок...</p>
+      </div>
+    </div>
+
+    <!-- БЛОК НОВОСТЕЙ -->
     <div class="container">
       <h2>Новости центра</h2>
       <div id="news-list" style="display: flex; flex-direction: column; gap: 15px;">
         <p style="text-align: center; color: #94a3b8;">Загрузка новостей...</p>
       </div>
     </div>
+
   </div>
 
   <!-- МОДАЛЬНОЕ ОКНО: ВХОД / РЕГИСТРАЦИЯ -->
