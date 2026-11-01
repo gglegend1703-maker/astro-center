@@ -21,12 +21,11 @@ const eventsList = document.getElementById("events-list");
 
 let isLoginMode = true;
 
-// --- УПРАВЛЕНИЕ МОДАЛЬНЫМИ ОКНАМИ ---
+// --- МОДАЛЬНЫЕ ОКНА ---
 window.openAuthModal = function() { document.getElementById("auth-modal").classList.remove("hidden"); };
 window.closeAuthModal = function() { document.getElementById("auth-modal").classList.add("hidden"); };
 
 window.openBookingModal = function(eventId, limit, title) {
-  // Если пользователь не авторизован, отправляем на форму входа
   if (!auth.currentUser) {
     alert("Чтобы записаться на экскурсию, пожалуйста, войдите или зарегистрируйтесь.");
     openAuthModal();
@@ -69,7 +68,7 @@ window.switchTab = function(mode) {
   authForm.reset();
 };
 
-// --- ОБРАБОТКА ВХОДА / РЕГИСТРАЦИИ ---
+// --- ВХОД / РЕГИСТРАЦИЯ ---
 authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = emailInput.value;
@@ -121,15 +120,13 @@ async function loadEvents() {
     }
     eventsList.innerHTML = "";
 
-    // Считаем свободные места
     const regSnapshot = await getDocs(collection(db, "registrations"));
     const regCounts = {};
     regSnapshot.forEach(doc => {
       const data = doc.data();
       const eventId = data.eventId;
       if (!regCounts[eventId]) regCounts[eventId] = 0;
-      const count = data.guests ? data.guests.length : 0;
-      regCounts[eventId] += count;
+      regCounts[eventId] += (data.guests ? data.guests.length : 0);
     });
 
     querySnapshot.forEach((docSnap) => {
@@ -157,6 +154,7 @@ async function loadEvents() {
     });
   } catch (error) {
     console.error("Ошибка загрузки экскурсий:", error);
+    eventsList.innerHTML = "<p style='color: #f87171; text-align: center;'>Ошибка загрузки. Проверьте права доступа в Firebase.</p>";
   }
 }
 
@@ -187,7 +185,7 @@ async function loadNews() {
   }
 }
 
-// --- ЗАГРУЗКА МОИХ ЗАЯВОК (ТОЛЬКО ДЛЯ АВТОРИЗОВАННЫХ) ---
+// --- МОИ ЗАЯВКИ ---
 async function loadMyRegistrations() {
   const container = document.getElementById("my-registrations-list");
   const user = auth.currentUser;
@@ -239,7 +237,7 @@ window.cancelRegistration = async function(regId) {
   }
 };
 
-// --- СЛЕЖЕНИЕ ЗА АВТОРИЗАЦИЕЙ ---
+// --- АВТОРИЗАЦИЯ ---
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginHeaderBtn.classList.add("hidden");
@@ -256,7 +254,7 @@ onAuthStateChanged(auth, async (user) => {
       }
     } catch (e) { console.log(e); }
 
-    loadMyRegistrations(); // Загружаем только заявки
+    loadMyRegistrations();
 
     try {
       const adminDoc = await getDoc(doc(db, "admins", user.uid));
@@ -330,7 +328,6 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
 
     const totalPrice = parseInt(document.getElementById("total-price").textContent);
     
-    // ПРОВЕРКА ЛИМИТА
     const eventDoc = await getDoc(doc(db, "events", currentEventId));
     const eventData = eventDoc.data();
     const regQuery = query(collection(db, "registrations"), where("eventId", "==", currentEventId));
@@ -379,6 +376,7 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
   }
 });
 
-// --- ЗАГРУЗКА ПРИ СТАРТЕ ---
+// --- ЗАГРУЗКА ПРИ СТАРТЕ (ДЛЯ ВСЕХ) ---
+// Эти вызовы должны быть ВНЕ onAuthStateChanged, чтобы срабатывать сразу
 loadEvents();
 loadNews();
