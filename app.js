@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, getDocs, addDoc, getCountFromServer, setDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, collection, getDocs, addDoc, getCountFromServer, setDoc, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase.js";
 
 const app = initializeApp(firebaseConfig);
@@ -28,11 +28,8 @@ window.switchTab = function(mode) {
   isLoginMode = (mode === 'login');
   document.getElementById("tab-login").classList.toggle("active", isLoginMode);
   document.getElementById("tab-register").classList.toggle("active", !isLoginMode);
-  
-  // Скрываем/показываем ФИО и Телефон
   document.getElementById("fullname-group").classList.toggle("hidden", isLoginMode);
   document.getElementById("phone-group").classList.toggle("hidden", isLoginMode);
-  
   submitBtn.textContent = isLoginMode ? "Войти" : "Зарегистрироваться";
   authError.textContent = "";
   authForm.reset();
@@ -43,16 +40,14 @@ authForm.addEventListener("submit", async (e) => {
   const email = emailInput.value;
   const password = passwordInput.value;
   const fullname = document.getElementById("fullname").value;
+  const phone = document.getElementById("phone").value;
   authError.textContent = "";
   submitBtn.disabled = true;
 
   try {
     if (isLoginMode) {
       await signInWithEmailAndPassword(auth, email, password);
-       } else {
-      const fullname = document.getElementById("fullname").value;
-      const phone = document.getElementById("phone").value;
-      
+    } else {
       if (!fullname.trim()) throw { message: "Введите ФИО" };
       if (!phone.trim()) throw { message: "Введите номер телефона" };
       
@@ -67,6 +62,7 @@ authForm.addEventListener("submit", async (e) => {
   } catch (error) {
     let message = "Произошла ошибка.";
     if (error.message === "Введите ФИО") message = "Пожалуйста, введите ФИО.";
+    else if (error.message === "Введите номер телефона") message = "Пожалуйста, введите номер телефона.";
     else if (error.code === 'auth/email-already-in-use') message = "Этот email уже зарегистрирован.";
     else if (error.code === 'auth/invalid-email') message = "Неверный формат email.";
     else if (error.code === 'auth/weak-password') message = "Пароль слишком короткий (мин. 6 символов).";
@@ -75,8 +71,6 @@ authForm.addEventListener("submit", async (e) => {
   } finally {
     submitBtn.disabled = false;
   }
-      if (error.message === "Введите ФИО") message = "Пожалуйста, введите ФИО.";
-    else if (error.message === "Введите номер телефона") message = "Пожалуйста, введите номер телефона.";
 });
 
 logoutBtn.addEventListener("click", () => signOut(auth));
@@ -90,16 +84,36 @@ async function loadEvents() {
       return;
     }
     eventsList.innerHTML = "";
+
+    const regSnapshot = await getDocs(collection(db, "registrations"));
+    const regCounts = {};
+    regSnapshot.forEach(doc => {
+      const data = doc.data();
+      const eventId = data.eventId;
+      if (!regCounts[eventId]) regCounts[eventId] = 0;
+      const count = data.guests ? data.guests.length : 0;
+      regCounts[eventId] += count;
+    });
+
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
       const date = new Date(data.date).toLocaleString("ru-RU");
+      const booked = regCounts[docSnap.id] || 0;
+      const free = data.limit - booked;
+      
+      let btnHtml = `<button style="width: auto; padding: 8px 15px; font-size: 14px; margin-top: 10px; float: right;" onclick="openBookingModal('${docSnap.id}', ${data.limit}, '${data.title}')">Записаться</button>`;
+      
+      if (free <= 0) {
+        btnHtml = `<button style="width: auto; padding: 8px 15px; font-size: 14px; margin-top: 10px; float: right; background: #475569; cursor: not-allowed;" disabled>Мест нет</button>`;
+      }
+
       const el = document.createElement("div");
       el.className = "card event-card";
       el.innerHTML = `
         <h3>${data.title}</h3>
-        <p>📅 ${date} | 👥 Лимит: ${data.limit} чел.</p>
+        <p>📅 ${date} | 👥 Свободно мест: <b style="color: ${free > 0 ? '#4ade80' : '#f87171'};">${free} из ${data.limit}</b></p>
         <p style="margin-top: 5px; font-size: 12px; color: #cbd5e1;">${data.description || ''}</p>
-        <button style="width: auto; padding: 8px 15px; font-size: 14px; margin-top: 10px; float: right;" onclick="openBookingModal('${docSnap.id}', ${data.limit}, '${data.title}')">Записаться</button>
+        ${btnHtml}
         <div style="clear: both;"></div>
       `;
       eventsList.appendChild(el);
@@ -158,12 +172,13 @@ async function loadMyRegistrations() {
 
       const el = document.createElement("div");
       el.className = "card";
-      el.style.borderLeft = `4px solid #4ade80`; // Только зеленая рамка, без статуса
+      el.style.borderLeft = `4px solid #4ade80`;
       el.innerHTML = `
         <h3 style="margin: 0 0 10px 0; color: #a78bfa; font-size: 18px;">${data.eventTitle}</h3>
         <p style="margin: 0 0 5px 0; font-size: 14px; color: #cbd5e1;">Заявка № <b>${data.listNumber}</b></p>
         <p style="margin: 0 0 10px 0; font-size: 14px; color: #cbd5e1;">Сумма: <b>${data.totalPrice} руб.</b></p>
         <div style="font-size: 13px; color: #94a3b8; background: #0f172a; padding: 10px; border-radius: 6px;"><b>Гости:</b><br>${guestsHtml || '—'}</div>
+        <button onclick="cancelRegistration('${docSnap.id}')" style="background: #ef4444; margin-top: 10px; padding: 8px; width: auto;">Отменить заявку</button>
       `;
       container.appendChild(el);
     });
@@ -171,6 +186,19 @@ async function loadMyRegistrations() {
     console.error("Ошибка загрузки моих заявок:", error);
   }
 }
+
+window.cancelRegistration = async function(regId) {
+  if (!confirm("Вы уверены, что хотите отменить заявку? Место будет освобождено.")) return;
+  try {
+    await deleteDoc(doc(db, "registrations", regId));
+    alert("Заявка отменена.");
+    loadMyRegistrations();
+    loadEvents();
+  } catch (error) {
+    console.error("Ошибка отмены:", error);
+    alert("Не удалось отменить заявку.");
+  }
+};
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -285,6 +313,25 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
     });
 
     const totalPrice = parseInt(document.getElementById("total-price").textContent);
+    
+    // ПРОВЕРКА ЛИМИТА
+    const eventDoc = await getDoc(doc(db, "events", currentEventId));
+    const eventData = eventDoc.data();
+    const regQuery = query(collection(db, "registrations"), where("eventId", "==", currentEventId));
+    const regSnapshot = await getDocs(regQuery);
+    let booked = 0;
+    regSnapshot.forEach(doc => {
+      const data = doc.data();
+      booked += (data.guests ? data.guests.length : 0);
+    });
+
+    if (booked + guests.length > eventData.limit) {
+      alert(`К сожалению, свободных мест недостаточно. Осталось: ${eventData.limit - booked}.`);
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Поехали!";
+      return;
+    }
+
     const countSnapshot = await getCountFromServer(collection(db, "registrations"));
     const listNumber = countSnapshot.data().count + 1;
 
@@ -296,7 +343,7 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
       guests: guests,
       totalPrice: totalPrice,
       listNumber: listNumber,
-      status: "paid", // СРАЗУ ОПЛАЧЕНО
+      status: "paid",
       createdAt: new Date().toISOString()
     });
 
