@@ -11,6 +11,12 @@ const form = document.getElementById("create-event-form");
 const formMessage = document.getElementById("form-message");
 const eventsContainer = document.getElementById("events-container");
 
+// Ограничиваем год
+const eventDateInput = document.getElementById("event-date");
+if (eventDateInput) {
+  eventDateInput.setAttribute("max", "2100-12-31T23:59");
+}
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
@@ -40,22 +46,21 @@ async function loadEvents() {
       eventsContainer.innerHTML = "<p style='color: #94a3b8;'>Пока нет созданных экскурсий.</p>";
       return;
     }
-        querySnapshot.forEach((doc) => {
-      const data = doc.data();
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       const date = new Date(data.date).toLocaleString("ru-RU");
       const el = document.createElement("div");
       el.className = "event-item";
-      // Добавляем Flexbox, чтобы кнопка удаления была справа
-      el.style.display = "flex";
-      el.style.justifyContent = "space-between";
-      el.style.alignItems = "center";
       
       el.innerHTML = `
         <div class="event-info">
           <h3>${data.title}</h3>
           <p>📅 ${date} | 👥 Лимит: ${data.limit} чел.</p>
         </div>
-        <button onclick="deleteEvent('${doc.id}')" style="background: #ef4444; width: auto; padding: 8px 15px; font-size: 14px; margin: 0;">Удалить</button>
+        <div style="display:flex; flex-direction: column; gap: 5px;">
+            <button onclick="downloadWordForEvent('${docSnap.id}')" style="background: #3b82f6; width: auto; padding: 8px 15px; font-size: 12px; margin: 0;">📄 Word</button>
+            <button onclick="deleteEvent('${docSnap.id}')" style="background: #ef4444; width: auto; padding: 8px 15px; font-size: 12px; margin: 0;">Удалить</button>
+        </div>
       `;
       eventsContainer.appendChild(el);
     });
@@ -127,47 +132,37 @@ async function loadGuests() {
   }
 }
 
-window.downloadWord = async function() {
+window.downloadWordForEvent = async function(eventId) {
   try {
-    const q = query(collection(db, "registrations"));
+    const q = query(collection(db, "registrations"), where("eventId", "==", eventId));
     const snapshot = await getDocs(q);
-    if (snapshot.empty) {
-      alert("Нет заявок для формирования списка.");
-      return;
-    }
-
-    // Получаем экскурсии
-    const eventsSnapshot = await getDocs(collection(db, "events"));
-    const eventsMap = {};
-    eventsSnapshot.forEach(doc => {
-      const data = doc.data();
-      eventsMap[doc.id] = { title: data.title, date: data.date };
-    });
-
-    // Группируем заявки по экскурсиям
-    const eventsData = {};
+    
+    const eventDoc = await getDoc(doc(db, "events", eventId));
+    const eventData = eventDoc.data();
+    
+    let totalGuests = 0;
+    const groups = [];
+    
     snapshot.forEach(doc => {
       const data = doc.data();
-      const eventId = data.eventId;
-      const eventInfo = eventsMap[eventId] || { title: "Неизвестная экскурсия", date: "" };
-      
-      if (!eventsData[eventId]) {
-        eventsData[eventId] = { 
-          title: eventInfo.title, 
-          date: eventInfo.date, 
-          groups: [] // массив заявок
-        };
-      }
-
-      // Собираем всех гостей этой заявки в одну группу
       if (data.guests && Array.isArray(data.guests)) {
-        eventsData[eventId].groups.push({
+        totalGuests += data.guests.length;
+        groups.push({
           listNumber: data.listNumber,
           totalPrice: data.totalPrice,
           guests: data.guests.map(g => g.name.toUpperCase())
         });
       }
     });
+
+    if (groups.length === 0) {
+      alert("На эту экскурсию пока нет записей.");
+      return;
+    }
+
+    const d = new Date(eventData.date);
+    const dateStr = d.toLocaleDateString("ru-RU");
+    const timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
 
     let htmlContent = `
       <!DOCTYPE html>
@@ -177,81 +172,50 @@ window.downloadWord = async function() {
         <style>
           body { font-family: 'Times New Roman', serif; }
           h1 { text-align: center; }
-          .event-header { margin-top: 30px; background: #f0f0f0; padding: 10px; border-left: 4px solid #4CAF50; }
+          .header-info { text-align: center; margin-bottom: 20px; font-size: 16px; }
           table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
           th, td { border: 1px solid #000; padding: 8px; text-align: left; }
           th { background-color: #e0e0e0; }
+          .footer { text-align: left; font-weight: bold; margin-top: 10px; }
         </style>
       </head>
       <body>
-        <h1>Списки гостей обсерватории</h1>
-    `;
-
-    for (const eventId in eventsData) {
-      const event = eventsData[eventId];
-      let dateStr = "Дата не указана", timeStr = "";
-      if (event.date) {
-        const d = new Date(event.date);
-        dateStr = d.toLocaleDateString("ru-RU");
-        timeStr = d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
-      }
-
-      htmlContent += `
-        <div class="event-header">
-          <h2>Экскурсия: ${event.title}</h2>
-          <p style="margin: 0;">Дата: ${dateStr} | Время: ${timeStr}</p>
-        </div>
+        <h1>Список гостей Астрономического центра ВГУ</h1>
+        <div class="header-info">на ${dateStr}, ${timeStr}</div>
         <table>
           <tr>
-            <th style="width: 50px;">№</th>
             <th style="width: 80px;">№ заявки</th>
             <th>ФИО</th>
-            <th style="width: 100px;">Сумма заявки</th>
+            <th style="width: 120px;">Сумма заявки</th>
             <th style="width: 150px;">Отметка об оплате</th>
           </tr>`;
 
-      let rowIndex = 1;
-
-      // Перебираем каждую заявку (группу)
-      event.groups.forEach(group => {
-        // Количество человек в группе
-        const groupSize = group.guests.length;
-
-        group.guests.forEach((guestName, index) => {
-          htmlContent += `<tr>`;
-          
-          // Если это первый человек в группе, объединяем ячейки (rowspan)
-          if (index === 0) {
-            htmlContent += `
-              <td style="vertical-align: middle;" rowspan="${groupSize}">${rowIndex}</td>
-              <td style="vertical-align: middle;" rowspan="${groupSize}">${group.listNumber}</td>
-            `;
-          }
-
-          // ФИО
-          htmlContent += `<td>${guestName}</td>`;
-
-          // Если это первый человек в группе, объединяем сумму и отметку
-          if (index === 0) {
-            htmlContent += `
-              <td style="vertical-align: middle;" rowspan="${groupSize}">${group.totalPrice} руб.</td>
-              <td style="vertical-align: middle;" rowspan="${groupSize}"></td>
-            `;
-          }
-
-          htmlContent += `</tr>`;
-        });
-        
-        rowIndex++;
+    groups.forEach(group => {
+      const groupSize = group.guests.length;
+      group.guests.forEach((guestName, index) => {
+        htmlContent += `<tr>`;
+        if (index === 0) {
+          htmlContent += `
+            <td style="vertical-align: middle;" rowspan="${groupSize}">${group.listNumber}</td>
+          `;
+        }
+        htmlContent += `<td>${guestName}</td>`;
+        if (index === 0) {
+          htmlContent += `
+            <td style="vertical-align: middle;" rowspan="${groupSize}">${group.totalPrice} руб.</td>
+            <td style="vertical-align: middle;" rowspan="${groupSize}"></td>
+          `;
+        }
+        htmlContent += `</tr>`;
       });
+    });
 
-      htmlContent += `</table>`;
-    }
-
-    htmlContent += `</body></html>`;
+    htmlContent += `</table>
+        <div class="footer">Всего заявлено гостей на экскурсию: ${totalGuests}</div>
+      </body></html>`;
 
     const converted = window.htmlDocx.asBlob(htmlContent);
-    const fileName = "Списки_гостей_по_экскурсиям.docx";
+    const fileName = `Список_${eventData.title.replace(/\s+/g, '_')}.docx`;
 
     const file = new File([converted], fileName, { 
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
@@ -259,7 +223,7 @@ window.downloadWord = async function() {
 
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
-        await navigator.share({ files: [file], title: 'Списки гостей' });
+        await navigator.share({ files: [file], title: 'Список гостей' });
         return; 
       } catch (error) {
         if (error.name === 'AbortError') return;
@@ -277,12 +241,49 @@ window.downloadWord = async function() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }, 60000); 
-
   } catch (error) {
     console.error("Ошибка генерации Word:", error);
     alert("Ошибка при создании файла.");
   }
 };
+
+window.deleteRegistration = async function(regId) {
+  if (!confirm("Вы уверены, что хотите удалить эту заявку? Места будут освобождены.")) return;
+  try {
+    const regDoc = await getDoc(doc(db, "registrations", regId));
+    if (!regDoc.exists()) return;
+    const regData = regDoc.data();
+    
+    await deleteDoc(doc(db, "registrations", regId));
+    
+    if (regData.eventId && regData.guests && Array.isArray(regData.guests)) {
+      try {
+        await updateDoc(doc(db, "events", regData.eventId), {
+          bookedSeats: increment(-regData.guests.length)
+        });
+      } catch (e) {}
+    }
+    
+    alert("Заявка удалена, места освобождены.");
+    loadGuests();
+  } catch (error) {
+    console.error("Ошибка удаления заявки:", error);
+    alert("Не удалось удалить заявку.");
+  }
+};
+
+window.deleteEvent = async function(eventId) {
+  if (!confirm("Вы уверены, что хотите удалить эту экскурсию?")) return;
+  try {
+    await deleteDoc(doc(db, "events", eventId));
+    alert("Экскурсия удалена.");
+    loadEvents(); 
+  } catch (error) {
+    console.error("Ошибка удаления экскурсии:", error);
+    alert("Не удалось удалить экскурсию.");
+  }
+};
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   formMessage.textContent = "Создание...";
@@ -293,7 +294,14 @@ form.addEventListener("submit", async (e) => {
   const desc = document.getElementById("event-desc").value;
 
   try {
-    await addDoc(collection(db, "events"), { title, date, limit, description: desc, createdAt: new Date().toISOString() });
+    await addDoc(collection(db, "events"), { 
+      title, 
+      date, 
+      limit, 
+      description: desc, 
+      bookedSeats: 0,
+      createdAt: new Date().toISOString() 
+    });
     formMessage.textContent = "Экскурсия успешно создана!";
     formMessage.className = "success";
     form.reset();
@@ -338,60 +346,4 @@ if (newsForm) {
       newsMessage.className = "error";
     }
   });
-  
-  window.deleteRegistration = async function(regId) {
-  if (!confirm("Вы уверены, что хотите удалить эту заявку? Места будут освобождены.")) return;
-  
-  try {
-    // 1. Получаем данные заявки ПЕРЕД удалением
-    const regDoc = await getDoc(doc(db, "registrations", regId));
-    
-    if (!regDoc.exists()) {
-      alert("Заявка уже удалена.");
-      loadGuests();
-      return;
-    }
-    
-    const regData = regDoc.data();
-    
-    // 2. Удаляем заявку
-    await deleteDoc(doc(db, "registrations", regId));
-    
-    // 3. Освобождаем места в экскурсии (уменьшаем счётчик)
-    if (regData.eventId && regData.guests && Array.isArray(regData.guests)) {
-      try {
-        await updateDoc(doc(db, "events", regData.eventId), {
-          bookedSeats: increment(-regData.guests.length)
-        });
-      } catch (e) {
-        // Если экскурсия уже удалена — просто игнорируем
-        console.warn("Не удалось обновить счётчик мест (возможно, экскурсия удалена):", e);
-      }
-    }
-    
-    alert("Заявка удалена, места освобождены.");
-    loadGuests(); // Обновляем список
-  } catch (error) {
-    console.error("Ошибка удаления заявки:", error);
-    alert("Не удалось удалить заявку.");
-  }
-};
-  
-  window.deleteEvent = async function(eventId) {
-  if (!confirm("Вы уверены, что хотите удалить эту экскурсию? Все связанные с ней данные останутся в заявках, но сама экскурсия исчезнет из списка.")) return;
-  
-  try {
-    // Импортируем deleteDoc, если он еще не импортирован в начале файла
-    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-    
-    await deleteDoc(doc(db, "events", eventId));
-    alert("Экскурсия удалена.");
-    
-    // Обновляем список экскурсий на странице
-    loadEvents(); 
-  } catch (error) {
-    console.error("Ошибка удаления экскурсии:", error);
-    alert("Не удалось удалить экскурсию.");
-  }
-};
 }
