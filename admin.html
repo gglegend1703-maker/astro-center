@@ -3,135 +3,183 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Админ-панель | Астрономический центр</title>
+  <title>Астрономический центр</title>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 20px; }
-    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 15px; margin-bottom: 20px; }
-    h1 { color: #a78bfa; margin: 0; }
-    .back-btn { text-decoration: none; color: white; background: #475569; padding: 8px 15px; border-radius: 6px; }
-    
-    .container { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 1200px; margin: 0 auto; }
-    .card { background: #1e293b; padding: 20px; border-radius: 8px; width: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.3); box-sizing: border-box; }
-    .card-row { display: flex; gap: 20px; flex-wrap: wrap; }
-    .card-half { flex: 1; min-width: 300px; }
-    
-    h2 { margin-top: 0; color: #cbd5e1; font-size: 18px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: #e2e8f0; margin: 0; padding: 0; min-height: 100vh; }
+    .header { display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.9); padding: 15px 30px; border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
+    .header h1 { margin: 0; font-size: 20px; color: #a78bfa; }
+    .header-right { display: flex; align-items: center; gap: 15px; }
+    .header-user-info { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #cbd5e1; }
+    .header-btn { width: auto; padding: 8px 15px; font-size: 14px; margin: 0; }
+    .main-content { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+    .container { background: rgba(30, 41, 59, 0.8); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 30px; }
+    h2 { text-align: center; color: #a78bfa; margin-top: 0; font-size: 22px; margin-bottom: 20px; }
     .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; color: #94a3b8; font-size: 14px; }
-    input, textarea { width: 100%; padding: 10px; box-sizing: border-box; background: #0f172a; border: 1px solid #475569; color: white; border-radius: 4px; font-family: inherit; }
-    input:focus, textarea:focus { border-color: #a78bfa; outline: none; }
-    button { width: 100%; padding: 10px; background: #8b5cf6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    input, textarea { width: 100%; padding: 12px; box-sizing: border-box; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; outline: none; font-family: inherit; }
+    input:focus, textarea:focus { border-color: #a78bfa; }
+    button { width: 100%; padding: 12px; border: none; border-radius: 6px; background: #8b5cf6; color: white; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; margin-top: 10px; }
     button:hover { background: #7c3aed; }
-    
-    .event-item { background: #0f172a; padding: 15px; border-radius: 4px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #8b5cf6; }
-    .event-info h3 { margin: 0 0 5px 0; color: #a78bfa; }
-    .event-info p { margin: 0; font-size: 14px; color: #94a3b8; }
-    .error { color: #f87171; font-size: 14px; margin-top: 10px; }
-    .success { color: #4ade80; font-size: 14px; margin-top: 10px; }
-    .event-item { gap: 12px; }
-    .event-info {
-      min-width: 0;   
-      flex: 1;
-      overflow: hidden;
-    }
-    .event-info h3,
-    .event-info p {
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
-    .event-item > button { flex-shrink: 0; } 
-    
-    #guests-container table {
-      table-layout: fixed;
-      width: 100%;
-    }
-    #guests-container th,
-    #guests-container td {
-      overflow-wrap: anywhere;
-      word-break: break-word;
-      vertical-align: top;
-    }
-    #guests-container th:nth-child(1), #guests-container td:nth-child(1) { width: 50px; }
-    #guests-container th:nth-child(3), #guests-container td:nth-child(3) { width: 140px; }
-    #guests-container th:nth-child(4), #guests-container td:nth-child(4) { width: 100px; }
-    #guests-container th:nth-child(5), #guests-container td:nth-child(5) { width: 150px; } 
-    #guests-container th:nth-child(6), 
-    #guests-container td:nth-child(6) { width: 100px; }
+    .hidden { display: none !important; }
+    .error { color: #f87171; font-size: 14px; margin-top: 10px; text-align: center; }
+    .logout-btn { background: #ef4444; }
+    .logout-btn:hover { background: #dc2626; }
+    .card { background: #0f172a; padding: 20px; border-radius: 8px; text-align: left; margin-bottom: 15px; }
+    .event-card { border-left: 4px solid #8b5cf6; }
+    .event-card h3 { margin: 0 0 10px 0; color: #a78bfa; font-size: 18px; }
+    .event-card p { margin: 0 0 5px 0; font-size: 14px; color: #94a3b8; }
+    .news-card { border-left: 4px solid #10b981; }
+    .news-card h3 { margin: 0 0 10px 0; color: #10b981; font-size: 18px; }
+    .news-card p { margin: 0; font-size: 14px; color: #cbd5e1; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; }
+    .news-card img { width: 100%; max-height: 300px; object-fit: cover; border-radius: 6px; margin-bottom: 15px; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: #1e293b; padding: 30px; border-radius: 12px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
+    .tabs { display: flex; margin-bottom: 20px; }
+    .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; border-bottom: 2px solid transparent; color: #94a3b8; font-weight: bold; }
+    .tab.active { border-bottom: 2px solid #a78bfa; color: #a78bfa; }
+    .card h3, .card p, .card div { overflow-wrap: anywhere; word-break: break-word; }
   </style>
 </head>
 <body>
 
   <div class="header">
-    <h1>Админ-панель</h1>
-    <a href="index.html" class="back-btn">← На главную</a>
+    <h1>Астрономический центр</h1>
+    <div class="header-right">
+      <button id="login-header-btn" class="header-btn" onclick="openAuthModal()">Войти / Регистрация</button>
+      <div id="user-header-block" class="hidden header-user-info">
+        <span id="user-email-display"></span>
+        <button id="admin-panel-btn" class="hidden header-btn" style="background: #10b981; margin-left: 10px;">Админ-панель</button>
+        <button id="logout-btn" class="header-btn logout-btn" style="margin-left: 10px;">Выйти</button>
+      </div>
+    </div>
   </div>
 
-  <div class="container">
-    <!-- Верхний ряд: Форма и Экскурсии -->
-    <div class="card-row">
-      <!-- Форма создания экскурсии -->
-      <div class="card card-half">
-        <h2>Создать новую экскурсию</h2>
-        <form id="create-event-form">
-          <div class="form-group">
-            <label>Название экскурсии</label>
-            <input type="text" id="event-title" placeholder="Например: Ночное небо Марса" required>
-          </div>
-          <div class="form-group">
-            <label>Дата и время</label>
-            <input type="datetime-local" id="event-date" required>
-          </div>
-          <div class="form-group">
-            <label>Лимит мест (гостей)</label>
-            <input type="number" id="event-limit" placeholder="Например: 15" min="1" required>
-          </div>
-          <div class="form-group">
-            <label>Краткое описание</label>
-            <textarea id="event-desc" rows="3" placeholder="Что будет на экскурсии..."></textarea>
-          </div>
-          <button type="submit">Добавить экскурсию</button>
-        </form>
-        <div id="form-message"></div>
-      </div>
-
-      <!-- Список экскурсий -->
-      <div class="card card-half">
-        <h2>Существующие экскурсии</h2>
-        <div id="events-container">Загрузка...</div>
-      </div>
-            <!-- Форма создания новости -->
-      <div class="card card-half">
-        <h2>Добавить новость</h2>
-        <form id="create-news-form">
-          <div class="form-group">
-            <label>Заголовок новости</label>
-            <input type="text" id="news-title" placeholder="Например: Открытие нового телескопа" required>
-          </div>
-          <div class="form-group">
-            <label>Текст новости</label>
-            <textarea id="news-content" rows="3" placeholder="Текст новости..." required></textarea>
-          </div>
-          <div class="form-group">
-            <label>Фотография (необязательно)</label>
-            <input type="file" id="news-photo" accept="image/*">
-          </div>
-          <button type="submit">Опубликовать новость</button>
-        </form>
-        <div id="news-message"></div>
+  <div class="main-content">
+    <!-- БЛОК ЭКСКУРСИЙ (Виден всем) -->
+    <div class="container">
+      <h2>Актуальные экскурсии</h2>
+      <div id="events-list" style="display: flex; flex-direction: column; gap: 15px;">
+        <p style="text-align: center; color: #94a3b8;">Загрузка экскурсий...</p>
       </div>
     </div>
 
-    <!-- Нижний ряд: Гости -->
-    <div class="card">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h2 style="margin: 0; border: none; padding: 0;">Список всех гостей (заявок)</h2>
-        <button onclick="downloadWord()" style="background: #3b82f6; width: auto; padding: 10px 20px; margin: 0;">📄 Скачать Word</button>
+    <!-- БЛОК ЛИЧНОГО КАБИНЕТА (Только для авторизованных) -->
+    <div id="user-block" class="container hidden">
+      <h1 id="welcome-text" style="text-align: center; color: #a78bfa; margin-top: 0;">Добро пожаловать!</h1>
+      <hr style="border-color: #334155; margin: 20px 0;">
+      <h2 style="font-size: 20px; margin-bottom: 15px;">Мои заявки</h2>
+      <div id="my-registrations-list" style="display: flex; flex-direction: column; gap: 15px;">
+        <p style="text-align: center; color: #94a3b8;">Загрузка заявок...</p>
       </div>
-      <div id="guests-container" style="overflow-x: auto;">Загрузка...</div>
+    </div>
+
+    <!-- БЛОК НОВОСТЕЙ -->
+    <div class="container">
+      <h2>Новости центра</h2>
+      <div id="news-list" style="display: flex; flex-direction: column; gap: 15px;">
+        <p style="text-align: center; color: #94a3b8;">Загрузка новостей...</p>
+      </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/docshift@latest/dist/docshift.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
-  <script type="module" src="admin.js?v=2"></script>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ВХОД / РЕГИСТРАЦИЯ -->
+  <div id="auth-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h2 style="color: #a78bfa; margin-top: 0; text-align: center;">Вход в систему</h2>
+      <div class="tabs">
+        <div class="tab active" id="tab-login" onclick="switchTab('login')">Вход</div>
+        <div class="tab" id="tab-register" onclick="switchTab('register')">Регистрация</div>
+      </div>
+      <form id="auth-form">
+        <div class="form-group hidden" id="fullname-group">
+          <input type="text" id="fullname" placeholder="ФИО (как в паспорте)">
+        </div>
+        <div class="form-group hidden" id="phone-group">
+          <input type="tel" id="phone" placeholder="Номер телефона">
+        </div>
+        <div class="form-group">
+          <input type="email" id="email" placeholder="Email" required>
+        </div>
+        <div class="form-group">
+          <input type="password" id="password" placeholder="Пароль (мин. 6 символов)" required>
+        </div>
+        <button type="submit" id="submit-btn">Войти</button>
+        <button type="button" onclick="closeAuthModal()" style="background: transparent; border: 1px solid #f87171; color: #f87171; margin-top: 10px;">Отмена</button>
+      </form>
+      <div id="auth-error" class="error"></div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ЗАПИСЬ НА ЭКСКУРСИЮ -->
+  <div id="booking-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h2 id="modal-title" style="color: #a78bfa; margin-top: 0; font-size: 18px;">Заявка на экскурсию</h2>
+      <p id="modal-event-info" style="color: #94a3b8; font-size: 14px; margin-bottom: 20px; text-align: center;"></p>
+      
+      <form id="booking-form">
+        <h3 style="color: #cbd5e1; font-size: 16px; margin-bottom: 10px;">Взрослые (полная стоимость):</h3>
+        <div id="adults-container">
+          <div class="form-group">
+            <input type="text" class="adult-name" placeholder="ФИО взрослого" required>
+          </div>
+          <div class="form-group">
+            <input type="text" class="adult-name" placeholder="ФИО взрослого">
+          </div>
+        </div>
+        
+        <h3 style="color: #cbd5e1; font-size: 16px; margin: 20px 0 10px 0;">Дети (до 14 лет, скидка 50%):</h3>
+        <div id="children-container">
+          <div class="form-group">
+            <input type="text" class="child-name" placeholder="ФИО ребенка (если есть)">
+          </div>
+        </div>
+        
+        <hr style="border-color: #334155; margin: 20px 0;">
+        
+        <h3 style="color: #4ade80; font-size: 18px; margin: 0;">
+          Итого к оплате: <span id="total-price">0</span> руб.
+        </h3>
+        <p style="font-size: 14px; color: #94a3b8; margin-top: 5px;">
+          Свободных мест на экскурсии: <span id="modal-free-seats" style="color: #a78bfa; font-weight: bold;"></span>
+        </p>
+
+        <p style="font-size: 13px; color: #f87171; margin-top: 15px; line-height: 1.4;">
+          Нажимая кнопку "Поехали!" вы, как лидер своей группы, подтверждаете, что произведете оплату экскурсии в размере <b id="confirm-price-text">0</b> рублей. Чек оплаты нужно будет показать специалисту Астрономического центра (можно на экране смартфона).
+        </p>
+        <button type="submit" style="margin-top: 15px; background: #10b981;">Поехали!</button>
+        <button type="button" onclick="closeModal()" style="background: transparent; border: 1px solid #f87171; color: #f87171; margin-top: 10px;">Отмена</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ОПЛАТА ЕРИП -->
+  <div id="payment-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="border: 2px solid #4ade80;">
+      <h2 id="payment-modal-title" style="color: #4ade80; margin-top: 0; text-align: center; font-size: 20px;">Заявка создана!</h2>
+      
+      <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+        <p style="margin: 5px 0; color: #cbd5e1;">Номер вашей заявки: <b style="color: #a78bfa; font-size: 18px;" id="pay-list-number"></b></p>
+        <p style="margin: 5px 0; color: #cbd5e1;">Сумма к оплате: <b style="color: #4ade80; font-size: 18px;" id="pay-total-price"></b> руб.</p>
+      </div>
+      
+      <h3 style="color: #cbd5e1; font-size: 16px; margin-bottom: 10px; text-align: center;">Инструкция по оплате через ЕРИП:</h3>
+      <div style="background: #0f172a; padding: 15px; border-radius: 8px; font-size: 14px; color: #cbd5e1; line-height: 1.6; margin-bottom: 20px; text-align: center;">
+        ЕРИП <span style="color: #a78bfa; font-weight: bold;">→</span> 
+        Образование и развитие <span style="color: #a78bfa; font-weight: bold;">→</span> 
+        Высшее образование <span style="color: #a78bfa; font-weight: bold;">→</span> 
+        г. Витебск <span style="color: #a78bfa; font-weight: bold;">→</span> 
+        ВГУ им. П. М. Машерова <span style="color: #a78bfa; font-weight: bold;">→</span> 
+        Прочие услуги <span style="color: #a78bfa; font-weight: bold;">→</span> 
+        ФИО <span style="color: #a78bfa; font-weight: bold;">→</span> 
+        <b>№ в списке</b> <span style="color: #a78bfa; font-weight: bold;">→</span> 
+        <b>Назначение платежа</b>
+      </div>
+      <p style="font-size: 14px; color: #4ade80; text-align: center; margin-bottom: 20px; font-weight: bold;">
+        Ваше место забронировано! Пожалуйста, оплатите заявку через ЕРИП.
+      </p>
+      <button onclick="closePaymentModal()" style="background: #10b981;">Понятно</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js?v=5"></script>
 </body>
 </html>
