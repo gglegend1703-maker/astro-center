@@ -21,13 +21,13 @@ const eventsList = document.getElementById("events-list");
 
 let isLoginMode = true;
 let currentEventId = null;
-let childCount = 0;
+let currentEventTitle = "";
 
 // --- МОДАЛЬНЫЕ ОКНА ---
 window.openAuthModal = function() { document.getElementById("auth-modal").classList.remove("hidden"); };
 window.closeAuthModal = function() { document.getElementById("auth-modal").classList.add("hidden"); };
 
-window.openBookingModal = function(eventId, limit, title) {
+window.openBookingModal = function(eventId, limit, title, dateStr, booked) {
   if (!auth.currentUser) {
     alert("Чтобы записаться на экскурсию, пожалуйста, войдите или зарегистрируйтесь.");
     openAuthModal();
@@ -35,11 +35,24 @@ window.openBookingModal = function(eventId, limit, title) {
   }
 
   currentEventId = eventId;
-  childCount = 0;
+  currentEventTitle = title;
   
-  document.getElementById("modal-title").textContent = `Запись: ${title}`;
-  document.getElementById("adults-container").innerHTML = `<div class="form-group"><input type="text" class="adult-name" placeholder="ФИО взрослого" required></div>`;
-  document.getElementById("children-container").innerHTML = "";
+  document.getElementById("modal-title").textContent = `Заявка на экскурсию`;
+  document.getElementById("modal-event-info").textContent = `${title}, ${dateStr}`;
+  
+  const free = limit - booked;
+  document.getElementById("modal-free-seats").textContent = `${free} из ${limit}`;
+  document.getElementById("modal-free-seats").style.color = (free <= 0) ? "#f87171" : "#4ade80";
+
+  // Инициализация полей
+  document.getElementById("adults-container").innerHTML = `
+    <div class="form-group"><input type="text" class="adult-name" placeholder="ФИО взрослого" required></div>
+    <div class="form-group"><input type="text" class="adult-name" placeholder="ФИО взрослого"></div>
+  `;
+  document.getElementById("children-container").innerHTML = `
+    <div class="form-group"><input type="text" class="child-name" placeholder="ФИО ребенка (если есть)"></div>
+  `;
+  
   document.getElementById("booking-form").reset();
   document.getElementById("booking-modal").classList.remove("hidden");
   updateTotal();
@@ -125,12 +138,10 @@ async function loadEvents() {
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
       const date = new Date(data.date).toLocaleString("ru-RU");
-      
-      // Берем занятые места из документа, если поля нет - считаем 0
       const booked = data.bookedSeats || 0; 
       const free = data.limit - booked;
       
-      let btnHtml = `<button style="width: auto; padding: 8px 15px; font-size: 14px; margin-top: 10px; float: right;" onclick="openBookingModal('${docSnap.id}', ${data.limit}, '${data.title}')">Записаться</button>`;
+      let btnHtml = `<button style="width: auto; padding: 8px 15px; font-size: 14px; margin-top: 10px; float: right;" onclick="openBookingModal('${docSnap.id}', ${data.limit}, '${data.title}', '${date}', ${booked})">Записаться</button>`;
       
       if (free <= 0) {
         btnHtml = `<button style="width: auto; padding: 8px 15px; font-size: 14px; margin-top: 10px; float: right; background: #475569; cursor: not-allowed;" disabled>Мест нет</button>`;
@@ -172,7 +183,7 @@ async function loadNews() {
       const el = document.createElement("div");
       el.className = "card news-card";
       let imgHtml = data.imageUrl ? `<img src="${data.imageUrl}" alt="Фото">` : "";
-      el.innerHTML = `${imgHtml}<h3>${data.title}</h3><p style="word-wrap: break-word;">${data.content}</p>`;
+      el.innerHTML = `${imgHtml}<h3>${data.title}</h3><p>${data.content}</p>`;
       newsList.appendChild(el);
     });
   } catch (error) {
@@ -222,20 +233,14 @@ async function loadMyRegistrations() {
 window.cancelRegistration = async function(regId) {
   if (!confirm("Вы уверены, что хотите отменить заявку? Место будет освобождено.")) return;
   try {
-    // Получаем данные заявки перед удалением
     const regDoc = await getDoc(doc(db, "registrations", regId));
     const regData = regDoc.data();
-    
-    // Удаляем заявку
     await deleteDoc(doc(db, "registrations", regId));
-    
-    // Уменьшаем счетчик в экскурсии
     if (regData && regData.eventId && regData.guests) {
       await updateDoc(doc(db, "events", regData.eventId), {
         bookedSeats: increment(-regData.guests.length)
       });
     }
-    
     alert("Заявка отменена.");
     loadMyRegistrations();
     loadEvents();
@@ -282,28 +287,37 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// --- ЛОГИКА ЗАПИСИ ---
-document.getElementById("adults-container").addEventListener("input", (e) => {
-  if (e.target.classList.contains("adult-name") && e.target.value.trim() !== "") {
-    const inputs = document.querySelectorAll(".adult-name");
-    if (inputs[inputs.length - 1] === e.target) {
-      const div = document.createElement("div");
-      div.className = "form-group";
-      div.innerHTML = `<input type="text" class="adult-name" placeholder="ФИО взрослого">`;
-      document.getElementById("adults-container").appendChild(div);
+// --- ЛОГИКА ДИНАМИЧЕСКИХ ПОЛЕЙ ---
+function autoAddFields(containerId, className, placeholder) {
+  const container = document.getElementById(containerId);
+  container.addEventListener("input", (e) => {
+    if (e.target.classList.contains(className)) {
+      const inputs = container.querySelectorAll(`.${className}`);
+      const lastInput = inputs[inputs.length - 1];
+      
+      if (lastInput === e.target && e.target.value.trim() !== "") {
+        const div = document.createElement("div");
+        div.className = "form-group";
+        div.innerHTML = `<input type="text" class="${className}" placeholder="${placeholder}">`;
+        container.appendChild(div);
+        updateTotal();
+      }
+      
+      if (inputs.length > 2) {
+        for (let i = 1; i < inputs.length - 1; i++) {
+          if (inputs[i].value.trim() === "" && inputs[i+1].value.trim() === "") {
+            inputs[i].parentElement.remove();
+            break;
+          }
+        }
+      }
       updateTotal();
     }
-  }
-});
+  });
+}
 
-document.getElementById("add-child-btn").addEventListener("click", () => {
-  childCount++;
-  const div = document.createElement("div");
-  div.className = "form-group";
-  div.innerHTML = `<input type="text" class="child-name" placeholder="ФИО ребенка" required>`;
-  document.getElementById("children-container").appendChild(div);
-  updateTotal();
-});
+autoAddFields("adults-container", "adult-name", "ФИО взрослого");
+autoAddFields("children-container", "child-name", "ФИО ребенка (если есть)");
 
 function updateTotal() {
   const adults = Array.from(document.querySelectorAll(".adult-name")).filter(i => i.value.trim() !== "").length;
@@ -333,7 +347,6 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
 
     const totalPrice = parseInt(document.getElementById("total-price").textContent);
     
-    // ПРОВЕРКА ЛИМИТА (на основе данных из документа)
     const eventDoc = await getDoc(doc(db, "events", currentEventId));
     const eventData = eventDoc.data();
     const booked = eventData.bookedSeats || 0;
@@ -348,15 +361,13 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
     const countSnapshot = await getCountFromServer(collection(db, "registrations"));
     const listNumber = countSnapshot.data().count + 1;
 
-    // 1. Обновляем счетчик в экскурсии
     await updateDoc(doc(db, "events", currentEventId), {
       bookedSeats: increment(guests.length)
     });
 
-    // 2. Создаем заявку
     await addDoc(collection(db, "registrations"), {
       eventId: currentEventId,
-      eventTitle: document.getElementById("modal-title").textContent.replace("Запись: ", ""),
+      eventTitle: currentEventTitle,
       userId: user.uid,
       userEmail: user.email,
       guests: guests,
@@ -366,22 +377,8 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
       createdAt: new Date().toISOString()
     });
 
-    document.getElementById("pay-list-number").textContent = listNumber;
-    document.getElementById("pay-total-price").textContent = totalPrice;
+    const dateObj = new Date(eventData.date);
+    const dateStr = dateObj.toLocaleDateString("ru-RU");
+    const timeStr = dateObj.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
     
-    closeModal();
-    document.getElementById("payment-modal").classList.remove("hidden");
-    loadEvents(); 
-    loadMyRegistrations();
-  } catch (error) {
-    console.error("Ошибка:", error);
-    alert("Ошибка при создании заявки.");
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Поехали!";
-  }
-});
-
-// --- ЗАГРУЗКА ПРИ СТАРТЕ ---
-loadEvents();
-loadNews();
+    document.getElementById("payment-modal-title").textContent = `Заявка № ${listNumber} на экскурсию
