@@ -381,4 +381,23 @@ document.getElementById("booking-form").addEventListener("submit", async (e) => 
     const dateStr = dateObj.toLocaleDateString("ru-RU");
     const timeStr = dateObj.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' });
     
-    document.getElementById("payment-modal-title").textContent = `Заявка № ${listNumber} на экскурсию
+    document.getElementById("payment-modal-title").textContent = `Заявка № ${listNumber} на экскурсию ${dateStr}, ${timeStr}`;
+    document.getElementById("pay-list-number").textContent = listNumber;
+    document.getElementById("pay-total-price").textContent = totalPrice;
+    
+    closeModal();
+    document.getElementById("payment-modal").classList.remove("hidden");
+    loadEvents(); 
+    loadMyRegistrations();
+  } catch (error) {
+    console.error("Ошибка:", error);
+    alert("Ошибка при создании заявки.");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Поехали!";
+  }
+});
+
+// --- ЗАГРУЗКА ПРИ СТАРТЕ ---
+loadEvents();
+loadNews();
