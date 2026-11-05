@@ -19,10 +19,13 @@ if (eventDateInput) {
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
+    // Если не авторизован — на главную
     window.location.href = "index.html";
     return;
   }
+  
   try {
+    // Проверка на админа
     const adminDoc = await getDoc(doc(db, "admins", user.uid));
     if (!adminDoc.exists()) {
       alert("У вас нет прав администратора!");
@@ -30,9 +33,13 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
   } catch (error) {
-    console.error("Ошибка проверки прав:", error);
-    return;
+    // Если произошла ошибка при запросе к базе — выводим её в консоль
+    console.error("ОШИБКА ПРОВЕРКИ ПРАВ:", error);
+    alert("Ошибка проверки прав: " + error.message);
+    return; // Останавливаем выполнение
   }
+  
+  // Если всё ок — загружаем данные
   loadEvents();
   loadGuests();
 });
@@ -195,9 +202,7 @@ window.downloadWordForEvent = async function(eventId) {
       group.guests.forEach((guestName, index) => {
         htmlContent += `<tr>`;
         if (index === 0) {
-          htmlContent += `
-            <td style="vertical-align: middle;" rowspan="${groupSize}">${group.listNumber}</td>
-          `;
+          htmlContent += `<td style="vertical-align: middle;" rowspan="${groupSize}">${group.listNumber}</td>`;
         }
         htmlContent += `<td>${guestName}</td>`;
         if (index === 0) {
